@@ -12,7 +12,7 @@ class ApiUserRepository implements UserRepository {
       if (json == null) return null;
       return UserProfile.fromJson(json);
     } catch (e) {
-      // Handle 404 or other errors
+      print('Fetch Profile Error for $userId: $e'); // DEBUG
       return null;
     }
   }

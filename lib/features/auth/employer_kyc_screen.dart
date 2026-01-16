@@ -83,7 +83,7 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
       return;
     }
 
-    if (_idFront == null || _idBack == null || _selfie == null || _profileImage == null) {
+    if (_idFront == null || _idBack == null || _profileImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload Profile Photo and all required Verification Photos')));
       return;
     }
@@ -117,7 +117,7 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
       data, 
       idFront: _idFront,
       idBack: _idBack,
-      selfie: _selfie,
+      selfie: null, // HIDDEN FOR DEV
       profileImage: _profileImage,
     );
 
@@ -299,7 +299,7 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
           const SizedBox(height: 8),
           _buildImagePicker('back', 'ID Back', _idBack),
           const SizedBox(height: 8),
-          _buildImagePicker('selfie', 'Live Selfie', _selfie),
+          // _buildImagePicker('selfie', 'Live Selfie', _selfie), // HIDDEN FOR DEV
         ],
       ),
     );

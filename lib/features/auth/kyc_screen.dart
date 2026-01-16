@@ -81,8 +81,8 @@ class _KycScreenState extends State<KycScreen> {
       return;
     }
 
-    if (_idFront == null || _idBack == null || _selfie == null || _profileImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload Profile Photo, ID Photos, and Selfie')));
+    if (_idFront == null || _idBack == null || _profileImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload Profile Photo and ID Proofs')));
       return;
     }
 
@@ -118,7 +118,7 @@ class _KycScreenState extends State<KycScreen> {
       data, 
       idFront: _idFront,
       idBack: _idBack,
-      selfie: _selfie,
+      selfie: null, // HIDDEN FOR DEV
       profileImage: _profileImage,
     );
 
@@ -338,7 +338,8 @@ class _KycScreenState extends State<KycScreen> {
              ],
            ),
            const SizedBox(height: 12),
-           _buildImagePicker('selfie', 'Take Live Selfie', _selfie),
+           // _buildImagePicker('selfie', 'Take Live Selfie', _selfie), // HIDDEN FOR DEV
+
         ],
       ),
     );

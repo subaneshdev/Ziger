@@ -19,6 +19,11 @@ public class ProfileService {
         return profileRepository.findById(id);
     }
 
+    public Profile getProfile(UUID id) {
+        return profileRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Profile not found"));
+    }
+
     public Optional<Profile> getProfileByMobile(String mobile) {
         return profileRepository.findByMobile(mobile);
     }
