@@ -179,6 +179,20 @@ class _KycScreenState extends State<KycScreen> {
                 type: StepperType.horizontal,
                 currentStep: _currentStep,
                 onStepContinue: () {
+                   // Validate current step requirements
+                   if (_currentStep == 0) {
+                      if (_profileImage == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload a profile photo')));
+                        return;
+                      }
+                   }
+                   if (_currentStep == 1) {
+                      if (_idFront == null || _idBack == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload both ID Front and Back photos')));
+                        return;
+                      }
+                   }
+
                    if (_currentStep < 3) {
                      setState(() => _currentStep += 1);
                    } else {

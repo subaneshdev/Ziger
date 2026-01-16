@@ -158,9 +158,24 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
           : Form(
               key: _formKey,
               child: Stepper(
-                type: StepperType.horizontal,
+                type: StepperType.vertical,
+                physics: const ClampingScrollPhysics(),
                 currentStep: _currentStep,
                 onStepContinue: () {
+                   // Validate current step requirements
+                   if (_currentStep == 0) { // Basics
+                      if (_profileImage == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload a profile photo')));
+                        return;
+                      }
+                   }
+                   if (_currentStep == 2) { // Identity
+                      if (_idFront == null || _idBack == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload both ID Front and Back photos')));
+                        return;
+                      }
+                   }
+
                    if (_currentStep < 4) {
                      setState(() => _currentStep += 1);
                    } else {
@@ -177,19 +192,21 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
                      padding: const EdgeInsets.only(top: 24.0),
                      child: Row(
                        children: [
+                         if (_currentStep > 0) ...[
+                           Expanded(
+                             child: OutlinedButton(
+                               onPressed: details.onStepCancel,
+                               child: const Text('Back'),
+                             ),
+                           ),
+                           const SizedBox(width: 12),
+                         ],
                          Expanded(
                            child: ElevatedButton(
                              onPressed: details.onStepContinue,
-                             child: Text(_currentStep == 4 ? 'Complete Registration' : 'Next Step'),
+                             child: Text(_currentStep == 4 ? 'Complete' : 'Next'),
                            ),
                          ),
-                         if (_currentStep > 0) ...[
-                           const SizedBox(width: 12),
-                           TextButton(
-                             onPressed: details.onStepCancel,
-                             child: const Text('Back'),
-                           ),
-                         ],
                        ],
                      ),
                    );

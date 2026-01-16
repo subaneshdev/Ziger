@@ -12,7 +12,7 @@ class ApiTaskRepository implements TaskRepository {
     // For MVP, hardcode or fetch near default location
     // final response = await _api.get('/gigs/feed?lat=37.7749&lng=-122.4194&radius=50');
     // Using simple fetch all if admin endpoint existed, but feed is safe default
-    final response = await _api.get('/gigs/feed?lat=37.7749&lng=-122.4194&radius=100');
+    final response = await _api.get('/gigs/feed?lat=37.7749&lng=-122.4194&radius=100000');
     
     if (response == null) return [];
     

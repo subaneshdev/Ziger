@@ -46,10 +46,14 @@ class ApiService {
 
   Future<Map<String, String>> _headers() async {
     final token = await getToken();
-    return {
+    final userId = await getUserId();
+    final headers = {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
+      if (userId != null) 'X-User-Id': userId,
     };
+    print('DEBUG: Sending Headers: $headers'); // DEBUG LOG
+    return headers;
   }
 
   Future<dynamic> get(String endpoint) async {
@@ -61,10 +65,13 @@ class ApiService {
   }
 
   Future<dynamic> post(String endpoint, dynamic data) async {
+    final headers = await _headers();
+    final body = jsonEncode(data);
+    print('DEBUG: POST $endpoint Payload: $body'); // DEBUG LOG
     final response = await http.post(
       Uri.parse('$baseUrl$endpoint'),
-      headers: await _headers(),
-      body: jsonEncode(data),
+      headers: headers,
+      body: body,
     );
     return _handleResponse(response);
   }
@@ -96,7 +103,7 @@ class ApiService {
       }
     } else if (response.statusCode == 404) {
       throw Exception('Endpoint Not Found (404). Ensure Backend is running and URL is correct. ${response.body}');
-    } else {
+      print('DEBUG: API Error Body: ${response.body}'); // LOG BODY
       throw Exception('API Error: ${response.statusCode} ${response.body}');
     }
   }

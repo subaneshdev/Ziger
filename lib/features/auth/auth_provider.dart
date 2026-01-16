@@ -78,23 +78,23 @@ class AuthProvider extends ChangeNotifier {
       
       debugPrint('Verify Response: $response'); // DEBUG: Print full response
 
-      if (response != null && response['access_token'] != null) {
-         String token = response['access_token'];
-         String userId = response['profile']['id'].toString(); // Safe cast
-         
-         await _api.setToken(token);
-         await _api.setUserId(userId);
-         
-         await _api.setToken(token);
-         await _api.setUserId(userId);
-         
-         // Use profile from response directly
-         if (response['profile'] != null) {
-            _userProfile = UserProfile.fromJson(response['profile']);
-         } else {
-            await _fetchProfile(userId);
+      if (response != null) {
+         // Handle both snake_case (Spring default with property) and camelCase (Java default)
+         String? token = response['access_token'] ?? response['accessToken'];
+         String? userId = response['profile'] != null ? response['profile']['id']?.toString() : null;
+
+         if (token != null && userId != null) {
+             await _api.setToken(token);
+             await _api.setUserId(userId);
+             
+             // Use profile from response directly
+             if (response['profile'] != null) {
+                _userProfile = UserProfile.fromJson(response['profile']);
+             } else {
+                await _fetchProfile(userId);
+             }
+             return true;
          }
-         return true;
       }
       return false;
     } catch (e) {

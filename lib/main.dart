@@ -9,6 +9,7 @@ import 'features/auth/otp_screen.dart';
 import 'features/auth/role_selection_screen.dart';
 import 'features/auth/kyc_screen.dart';
 import 'features/gig_worker/worker_home_screen.dart';
+import 'features/gig_worker/ongoing_gig_screen.dart';
 import 'features/gig_worker/task_details_screen.dart';
 import 'features/gig_worker/worker_profile_screen.dart';
 import 'features/employer/employer_home_screen.dart';
@@ -236,6 +237,20 @@ class _ZiggersAppState extends State<ZiggersApp> {
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationsScreen(),
+        ),
+        GoRoute(
+          path: '/worker/ongoing-gig',
+          builder: (context, state) {
+             // For now, pass mock data or retrieve from state/extra
+             // Ideally this comes from state management or arguments
+             final mockData = {
+               'title': 'Retail Store Assistant',
+               'employer': 'Zara Pvt Ltd',
+               'address': '123 Fashion Street',
+               'location': {'lat': 37.7749, 'lng': -122.4194},
+             };
+             return OngoingGigScreen(gigData: mockData);
+          },
         ),
       ],
     );

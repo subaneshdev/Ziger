@@ -32,8 +32,8 @@ class ApiKycRepository implements KycRepository {
     // Getting ID from ApiService token/stored? Or SupabaseService.currentUser.id?
     // Let's use SupabaseService.currentUser?.id as fallback or pass in data['id'].
     
-    final userId = _supabase.currentUser?.id;
-    if (userId == null) throw Exception("User not logged in");
+    final userId = await _api.getUserId();
+    if (userId == null) throw Exception("User not logged in (Backend ID missing)");
 
     String? idFrontUrl;
     String? idBackUrl;

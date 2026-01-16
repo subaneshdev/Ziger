@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Data
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
 public class GigRequest {
     private String title;
     private String description;
@@ -16,5 +17,6 @@ public class GigRequest {
     private OffsetDateTime startTime;
     private OffsetDateTime endTime;
     private BigDecimal estimatedHours;
-    // Category specific fields can be a Map<String, Object> or JSON string in future
+    // Category specific fields can be a Map<String, Object> or JSON string in
+    // future
 }
