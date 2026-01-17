@@ -29,23 +29,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _fetchMessages() async {
     final user = context.read<AuthProvider>().userProfile;
-    if (user == null) return;
+    if (user == null) {
+      debugPrint('Chat Debug: User is null');
+      return;
+    }
+
+    debugPrint('Chat Debug: Fetching messages for taskId: ${widget.taskId}, userId: ${user.id}');
 
     try {
       final msgs = await context.read<ChatRepository>().getMessages(widget.taskId, user.id);
+      debugPrint('Chat Debug: Fetched ${msgs.length} messages');
       if (mounted) {
         setState(() {
-          _messages = msgs; // Backend sorts by date usually? Assuming ASC or DESC.
-          // If backend is DESC, reverse. Assuming backend sends latest first or last?
-          // Backend repo says "OrderByCreatedAtDesc". So first item is NEWEST.
-          // ListView(reverse: true) expects newest at bottom if we insert at 0?
-          // No, usually chat puts newest at bottom.
-          // If List is [Newest, ..., Oldest] and we want Newest at Bottom in Column, we reverse it.
-          // Let's assume Backend sends [Newest, ..., Oldest].
-          // We will render ListView(reverse: true) and pass list as is?
-          // If we use standard list view, item 0 is top.
-          // Standard chat: bottom is newest.
-          // So if we have [Newest, Oldest], index 0 is at bottom (with reverse: true).
+          // Backend sends ASC (oldest first).
+          // ListView(reverse: true) expects newest first (index 0).
+          // We need to reverse the list so newest is at 0.
+          _messages = msgs.reversed.toList(); 
         });
       }
     } catch (e) {
@@ -62,14 +61,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final user = context.read<AuthProvider>().userProfile;
     if (user == null) return;
+    
+    debugPrint('Chat Debug: Sending message: $text');
 
     // Optimistic UI update could be done here
     try {
       final newMsg = await context.read<ChatRepository>().sendMessage(widget.taskId, text, user.id);
       if (newMsg != null && mounted) {
+        debugPrint('Chat Debug: Message sent successfully: ${newMsg.id}');
         setState(() {
           _messages.insert(0, newMsg); // Add to top (as listing is reverse)
         });
+      } else {
+        debugPrint('Chat Debug: Message sent but response was null');
       }
     } catch (e) {
       debugPrint('Send Error: $e');

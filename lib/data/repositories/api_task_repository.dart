@@ -57,41 +57,32 @@ class ApiTaskRepository implements TaskRepository {
 
   @override
   Future<void> checkIn(String taskId, double lat, double lng, String photoUrl) async {
-    // Backend doesn't have strict check-in, map to startGig or updateLocation
-    // Reuse startGig if status is assigned
-     await _api.post('/gigs/$taskId/start', {});
+    // Pass photoUrl to start endpoint
+     await _api.post('/gigs/$taskId/start', photoUrl);
   }
 
   @override
   Future<void> updateLiveLocation(String taskId, double lat, double lng) async {
-    // Use ProfileService location update
-    // We need userId. Assuming it's in token, but repository method might not have it.
-    // Current TaskRepository signature takes taskId.
-    // Map to new Api endpoint if we adjust repo signature or fetch user id from somewhere.
-    // _api.post('/profiles/$userId/location?lat=$lat&lng=$lng', {});
+    // unimplemented
   }
 
   @override
   Future<void> uploadProgressPhoto(String taskId, String photoUrl) async {
-    await _api.post('/gigs/$taskId/proof', photoUrl); // Sending raw string body or JSON? 
-    // Controller expects @RequestBody String photoUrl. 
-    // ApiService.post jsonEncodes body.
-    // Make sure controller accepts JSON string "url" or plain text. 
-    // Controller signature: @RequestBody String photoUrl => Spring maps body to string.
-    // If we send JSON "url", Spring sees "{"url":...}".
-    // Better to send map keys relative to backend expectation.
+    await _api.post('/gigs/$taskId/proof', photoUrl);
   }
 
   @override
   Future<void> checkOut(String taskId, String photoUrl) async {
-    // Maybe upload proof and then complete?
-    await uploadProgressPhoto(taskId, photoUrl);
-    await completeGig(taskId);
+    await completeGigWithPhoto(taskId, photoUrl); // Use specialized method or update interface
   }
 
   @override
   Future<void> completeGig(String taskId) async {
-    await _api.post('/gigs/$taskId/complete', {});
+    await _api.post('/gigs/$taskId/complete', null);
+  }
+  
+  Future<void> completeGigWithPhoto(String taskId, String photoUrl) async {
+     await _api.post('/gigs/$taskId/complete', photoUrl);
   }
 
   @override

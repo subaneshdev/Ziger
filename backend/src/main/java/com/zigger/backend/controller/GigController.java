@@ -98,9 +98,10 @@ public class GigController {
     @PostMapping("/{gigId}/start")
     public ResponseEntity<?> startGig(
             @RequestHeader("X-User-Id") UUID userId,
-            @PathVariable UUID gigId) {
+            @PathVariable UUID gigId,
+            @RequestBody(required = false) String photoUrl) {
         try {
-            return ResponseEntity.ok(gigService.startGig(userId, gigId));
+            return ResponseEntity.ok(gigService.startGig(userId, gigId, photoUrl));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -121,9 +122,10 @@ public class GigController {
     @PostMapping("/{gigId}/complete")
     public ResponseEntity<?> completeGig(
             @RequestHeader("X-User-Id") UUID userId,
-            @PathVariable UUID gigId) {
+            @PathVariable UUID gigId,
+            @RequestBody(required = false) String photoUrl) {
         try {
-            return ResponseEntity.ok(gigService.completeGig(userId, gigId));
+            return ResponseEntity.ok(gigService.completeGig(userId, gigId, photoUrl));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

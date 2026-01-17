@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
@@ -241,15 +242,22 @@ class _ZiggersAppState extends State<ZiggersApp> {
         GoRoute(
           path: '/worker/ongoing-gig',
           builder: (context, state) {
-             // For now, pass mock data or retrieve from state/extra
-             // Ideally this comes from state management or arguments
-             final mockData = {
-               'title': 'Retail Store Assistant',
-               'employer': 'Zara Pvt Ltd',
-               'address': '123 Fashion Street',
-               'location': {'lat': 37.7749, 'lng': -122.4194},
-             };
-             return OngoingGigScreen(gigData: mockData);
+             if (state.extra is Task) {
+               return OngoingGigScreen(task: state.extra as Task);
+             }
+             // Fallback/Mock for dev
+             return OngoingGigScreen(task: Task(
+               id: 'mock-task-id',
+               employerId: 'mock-employer-id',
+               title: 'Retail Store Assistant',
+               companyName: 'Zara Pvt Ltd',
+               locationName: '123 Fashion Street',
+               location: const LatLng(37.7749, -122.4194),
+               payout: 120.0,
+               distance: '5 km',
+               time: '4h',
+               status: 'in_progress',
+             ));
           },
         ),
       ],

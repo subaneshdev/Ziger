@@ -7,7 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../models/task_model.dart';
+import '../../data/repositories/task_repository.dart';
+import '../../features/auth/auth_provider.dart';
 
 // --- Screen State Enum ---
 enum GigStep {
@@ -18,9 +22,9 @@ enum GigStep {
 }
 
 class OngoingGigScreen extends StatefulWidget {
-  final Map<String, dynamic> gigData; // Pass actual gig data here
+  final Task task;
 
-  const OngoingGigScreen({super.key, required this.gigData});
+  const OngoingGigScreen({super.key, required this.task});
 
   @override
   State<OngoingGigScreen> createState() => _OngoingGigScreenState();
@@ -34,25 +38,45 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
   Position? _currentPosition;
   bool _isLocationValid = false;
   bool _isLoading = false;
+  double _distanceToSite = 0.0;
 
   // Proofs
   File? _checkInPhoto;
   DateTime? _checkInTime;
-  Position? _checkInLocation;
   
   File? _checkOutPhoto;
   DateTime? _checkOutTime;
-  Position? _checkOutLocation;
 
-  // Working Updates
+  // Working Updates - Mock for now as backend might not persist these in a way we can fetch easily in MVP
+  // Ideally, we fetch this from backend. For MVP, we maintain local state or optimistic.
   final List<Map<String, dynamic>> _updates = [];
 
   final ImagePicker _picker = ImagePicker();
+  
+  // Config
+  static const double _validRadiusMeters = 200; // Allow 200m radius
 
   @override
   void initState() {
     super.initState();
+    _initializeGigState();
     _startLocationUpdates();
+  }
+
+  void _initializeGigState() {
+     // Determine step from Task status
+     if (widget.task.status == 'in_progress') {
+       _currentStep = GigStep.working;
+       if (widget.task.startedAt != null) {
+         _checkInTime = widget.task.startedAt;
+         _elapsedTime = DateTime.now().difference(widget.task.startedAt!);
+       }
+       _startTimer();
+     } else if (widget.task.status == 'completed') {
+       _currentStep = GigStep.finished;
+     } else {
+       _currentStep = GigStep.reachLocation;
+     }
   }
 
   @override
@@ -62,6 +86,7 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -72,96 +97,59 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
   }
 
   Future<void> _startLocationUpdates() async {
-    // Check permissions first (omitted for brevity, assume granted or handled by global service)
-    // Stream position logic
-    // For demo, we just get current position
-    try {
-      Position pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      if (mounted) {
-        setState(() {
-          _currentPosition = pos;
-          // Simple mock validation: Assume valid if within range
-          // In real app, calculate distance to widget.gigData['location']
-          _isLocationValid = true; 
-        });
-      }
-    } catch (e) {
-      debugPrint("Location Error: $e");
+    // Check permissions
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
     }
+
+    if (permission == LocationPermission.deniedForever) return;
+
+    // Listen to stream
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 10),
+    ).listen((Position position) {
+      if (!mounted) return;
+      
+      final double distance = Geolocator.distanceBetween(
+        position.latitude, 
+        position.longitude, 
+        widget.task.location.latitude, 
+        widget.task.location.longitude
+      );
+
+      setState(() {
+        _currentPosition = position;
+        _distanceToSite = distance;
+        
+        // Auto-advance step 1 -> 2 if nearby
+        if (_currentStep == GigStep.reachLocation && distance <= _validRadiusMeters) {
+          _currentStep = GigStep.checkIn;
+        }
+        
+        _isLocationValid = distance <= _validRadiusMeters;
+      });
+    });
   }
 
   Future<void> _openMap() async {
-    // Mock Coordinates
-    const double lat = 37.7749;
-    const double lng = -122.4194;
+    final lat = widget.task.location.latitude;
+    final lng = widget.task.location.longitude;
     final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     }
   }
 
-  Future<void> _handleCheckIn() async {
-    if (!_isLocationValid) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are not at the location yet!')));
-       return;
-    }
-
-    // 1. Capture Photo
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-    if (photo == null) return;
-
-    setState(() => _isLoading = true);
-
-    // 2. Capture GPS & Time
-    final position = await Geolocator.getCurrentPosition();
-    
-    // Simulate API Call
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (mounted) {
-      setState(() {
-        _checkInPhoto = File(photo.path);
-        _checkInTime = DateTime.now();
-        _checkInLocation = position;
-        _currentStep = GigStep.working;
-        _startTimer();
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check-in Successful!')));
-    }
-  }
-
-  Future<void> _addWorkUpdate() async {
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-    if (photo == null) return;
-
-    // Show dialog for optional note
-    String? note = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        String text = '';
-        return AlertDialog(
-          title: const Text('Add Note (Optional)'),
-          content: TextField(onChanged: (v) => text = v, decoration: const InputDecoration(hintText: 'Describe progress...')),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Skip')),
-            TextButton(onPressed: () => Navigator.pop(ctx, text), child: const Text('Add')),
-          ],
-        );
-      },
-    );
-
-    setState(() {
-      _updates.insert(0, {
-        'photo': File(photo.path),
-        'note': note,
-        'time': DateTime.now(),
-      });
-    });
-  }
-
   Future<void> _handleCheckOut() async {
-    // 1. Capture Photo
+     // 1. Capture Photo
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo == null) return;
 
@@ -182,67 +170,214 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
 
     setState(() => _isLoading = true);
     
-    // Simulate API
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // Logic: upload proof then complete
+      // In MVP backend: checkOut implementation calls 'completeGig'.
+      // We pass the photo as a "progress" photo first or update task.
+      // Since ApiTaskRepository checkOut does upload + complete, we rely on that.
+      // But ApiTaskRepository uploadProgressPhoto takes "photoId" possibly?
+      // Our backend API is minimal. Let's pretend we just send the path/base64 via repo.
+      // IMPORTANT: In real app, we upload to Storage bucket (Supabase/S3), get URL, send URL.
+      // For MVP Demo, we might be sending a mock URL or ignoring it.
+      
+      // We'll simulate upload delay and mock URL for now as we don't have storage bucket logic in this file.
+      // Assuming Repository handles "upload" internally or accepts local path?
+      // Repository signature: checkOut(taskId, photoUrl).
+      
+      await context.read<TaskRepository>().checkOut(widget.task.id, "mock_checkout_url_${DateTime.now()}");
 
-    if (mounted) {
-       setState(() {
-         _checkOutPhoto = File(photo.path);
-         _checkOutTime = DateTime.now();
-         _timer?.cancel();
-         _currentStep = GigStep.finished;
-         _isLoading = false;
-       });
-       // Navigate away or show summary
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gig Completed!')));
-       context.go('/worker/home');
+      if (mounted) {
+         setState(() {
+           _checkOutPhoto = File(photo.path);
+           _checkOutTime = DateTime.now();
+           _timer?.cancel();
+           _currentStep = GigStep.finished;
+           _isLoading = false;
+         });
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gig Completed Successfully!')));
+         context.go('/worker/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error finishing gig: $e')));
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Stack(
-        children: [
-          Column(
-            children: [
-               _buildStickyHeader(),
-               Expanded(
-                 child: SingleChildScrollView(
-                   child: Padding(
-                     padding: const EdgeInsets.only(bottom: 100), // Space for bottom sheet/instructions
-                     child: Column(
-                       children: [
-                         _buildLocationCard(),
-                         if (_currentStep == GigStep.reachLocation || _currentStep == GigStep.checkIn)
-                             _buildCheckInSection(),
-                         if (_currentStep == GigStep.working || _currentStep == GigStep.finished)
-                             _buildWorkUpdatesSection(),
-                          if (_currentStep == GigStep.working)
-                             _buildCheckOutSection(),
-                          if (_currentStep == GigStep.finished)
-                             _buildEarningsCard(),
-                          _buildCommunicationSection(),
-                          _buildHelpSection(),
-                       ],
-                     ),
-                   ),
-                 ),
-               ),
-            ],
-          ),
-          if (_isLoading) ...[
-            const ModalBarrier(color: Colors.black45, dismissible: false),
-            const Center(child: CircularProgressIndicator()),
+  Future<void> _handleCheckIn() async {
+    if (!_isLocationValid) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are not at the location yet!')));
+       return;
+    }
+
+    // 1. Capture Photo
+    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      
+      // Call Repository
+      // Similar to CheckOut, we simulate photo upload
+      await context.read<TaskRepository>().checkIn(widget.task.id, position.latitude, position.longitude, "mock_checkin_url");
+
+      if (mounted) {
+        setState(() {
+          _checkInPhoto = File(photo.path);
+          _checkInTime = DateTime.now();
+          _currentStep = GigStep.working;
+          _startTimer();
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Checked In Successfully! Work Started.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error checking in: $e')));
+      }
+    }
+  }
+
+  Future<void> _addWorkUpdate() async {
+    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo == null) return;
+
+    String? note = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        String text = '';
+        return AlertDialog(
+          title: const Text('Add Note (Optional)'),
+          content: TextField(onChanged: (v) => text = v, decoration: const InputDecoration(hintText: 'Describe progress...')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Skip')),
+            TextButton(onPressed: () => Navigator.pop(ctx, text), child: const Text('Add')),
           ],
-          _buildLiveStatusPanel(),
+        );
+      },
+    );
+
+    setState(() => _isLoading = true);
+
+    try {
+       await context.read<TaskRepository>().uploadProgressPhoto(widget.task.id, "mock_update_url");
+       if (mounted) {
+         setState(() {
+            _updates.insert(0, {
+              'photo': File(photo.path),
+              'note': note,
+              'time': DateTime.now(),
+            });
+            _isLoading = false;
+         });
+       }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error uploading update: $e')));
+    }
+  }
+
+  // Prevent back navigation
+  Future<bool> _onWillPop() async {
+    if (_currentStep == GigStep.working || _currentStep == GigStep.checkIn) {
+       final shouldPop = await showDialog<bool>(
+         context: context, 
+         builder: (ctx) => AlertDialog(
+           title: const Text('Warning'),
+           content: const Text('You have an active gig. Leaving this screen is not recommended.'),
+           actions: [
+             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
+             TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Leave Anyway', style: TextStyle(color: Colors.red))),
+           ],
+         )
+       );
+       return shouldPop ?? false;
+    }
+    return true;
+  }
+  
+  void _reportIssue() {
+    // Collect diagnostics
+    final diag = {
+      'taskId': widget.task.id,
+      'step': _currentStep.toString(),
+      'gps': _currentPosition?.toString() ?? 'Unknown',
+      'validLoc': _isLocationValid,
+      'user': context.read<AuthProvider>().userProfile?.id,
+    };
+    print('USER REPORTED ISSUE: $diag');
+    
+    // In real app, send to support API
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Issue'),
+        content: const Text('Support has been notified with your location and gig status. \n\nCall Employer directly for immediate help.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );
   }
 
-  // 1. GIG SUMMARY HEADER
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: Stack(
+          children: [
+            Column(
+              children: [
+                 _buildStickyHeader(),
+                 Expanded(
+                   child: SingleChildScrollView(
+                     child: Padding(
+                       padding: const EdgeInsets.only(bottom: 150), // Increased padding for bottom panel
+                       child: Column(
+                         children: [
+                           _buildLocationCard(),
+                           if (_currentStep == GigStep.reachLocation || _currentStep == GigStep.checkIn)
+                               _buildCheckInSection(),
+                           if (_currentStep == GigStep.working || _currentStep == GigStep.finished)
+                               _buildWorkUpdatesSection(),
+                            if (_currentStep == GigStep.working)
+                               _buildCheckOutSection(),
+                            if (_currentStep == GigStep.finished)
+                               _buildEarningsCard(),
+                            _buildCommunicationSection(),
+                            _buildHelpSection(),
+                         ],
+                       ),
+                     ),
+                   ),
+                 ),
+              ],
+            ),
+            if (_isLoading) ...[
+              const ModalBarrier(color: Colors.black45, dismissible: false),
+              const Center(child: CircularProgressIndicator()),
+            ],
+            _buildLiveStatusPanel(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 1. GIG SUMMARY HEADER (Sticky)
   Widget _buildStickyHeader() {
     return Container(
       color: Colors.white,
@@ -251,20 +386,12 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
         children: [
           Row(
             children: [
+              // Only allow back if not working, or if forced
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () {
-                   if (context.canPop()) {
-                     context.pop();
-                   } else {
-                     // If it's the root (replaced home), maybe go to job list or do nothing?
-                     // For now, let's try pop, or user might want to navigate to a specific route.
-                     context.go('/worker/home'); // Re-navigating to home might just reload this screen due to my change.
-                     // Let's assume there is somewhere to go back to if we are in a 'gig screen'.
-                     // For correct behavior if this is the only screen in stack:
-                     // We might need to change the 'Home' implementation back to original if they want to leave.
-                     // But strictly following instruction: "have a back button".
-                     if (context.canPop()) context.pop();
+                onPressed: () async {
+                   if (await _onWillPop()) {
+                     if (context.mounted) context.pop();
                    }
                 },
                 padding: EdgeInsets.zero,
@@ -275,9 +402,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.gigData['title'] ?? 'Retail Store Assistant', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(widget.task.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Text(widget.gigData['employer'] ?? 'Zara Pvt Ltd', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                    Text(widget.task.companyName, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ],
                 ),
               ),
@@ -295,7 +422,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                 const Icon(Icons.timer, size: 16, color: Colors.blue),
                 const SizedBox(width: 8),
                 Text(
-                  _elapsedTime.inSeconds == 0 ? 'Starts in 00:30:00' : _formatDuration(_elapsedTime),
+                  _elapsedTime.inSeconds == 0 
+                      ? 'Starts at ${widget.task.startTime != null ? DateFormat('hh:mm a').format(widget.task.startTime!) : 'Scheduled Time'}' 
+                      : _formatDuration(_elapsedTime),
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
                 ),
               ],
@@ -336,6 +465,15 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
 
   // 2. LOCATION & NAVIGATION
   Widget _buildLocationCard() {
+    String distanceText = _currentPosition == null 
+        ? 'Locating...' 
+        : '${(_distanceToSite / 1000).toStringAsFixed(2)} km away';
+    
+    // If very close, show meters
+    if (_distanceToSite < 1000 && _currentPosition != null) {
+      distanceText = '${_distanceToSite.round()} m away';
+    }
+
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 2,
@@ -352,9 +490,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.gigData['address'] ?? '123 Main Street, City Center', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(widget.task.locationName, style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('0.2 km away', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      Text(distanceText, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                     ],
                   ),
                 ),
@@ -366,7 +504,12 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
               children: [
                 Icon(_isLocationValid ? Icons.check_circle : Icons.warning, color: _isLocationValid ? Colors.green : Colors.orange, size: 16),
                 const SizedBox(width: 8),
-                Text(_isLocationValid ? 'You are at the location' : 'Not at location yet', style: TextStyle(color: _isLocationValid ? Colors.green : Colors.orange, fontSize: 13, fontWeight: FontWeight.w500)),
+                Expanded(
+                  child: Text(
+                    _isLocationValid ? 'You are at the location' : 'Go to location to Start Gig', 
+                    style: TextStyle(color: _isLocationValid ? Colors.green : Colors.orange, fontSize: 13, fontWeight: FontWeight.w500)
+                  ),
+                ),
               ],
             ),
           ],
@@ -377,6 +520,10 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
 
   // 3A. CHECK-IN SECTION
   Widget _buildCheckInSection() {
+    bool canProceed = _isLocationValid;
+    // For testing/simulator sometimes we want to bypass if GPS is wonky, but requirement is strict.
+    // Use Strict.
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: Colors.white,
@@ -385,7 +532,7 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('STEP 1: ENTRY', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text('STEP 1: ENTRY PROOF', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 16),
             if (_checkInPhoto != null)
                ClipRRect(
@@ -397,27 +544,40 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                  height: 150,
                  width: double.infinity,
                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-                 child: const Center(child: Icon(Icons.camera_alt, size: 40, color: Colors.grey)),
+                 child: Column(
+                   mainAxisAlignment: MainAxisAlignment.center,
+                   children: const [
+                     Icon(Icons.camera_alt, size: 40, color: Colors.grey),
+                     SizedBox(height: 8),
+                     Text('Take Check-in Photo', style: TextStyle(color: Colors.grey)),
+                   ],
+                 ),
                ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: _isLocationValid ? _handleCheckIn : null,
+                onPressed: canProceed ? _handleCheckIn : null,
                 icon: const Icon(Icons.login),
                 label: const Text('START GIG'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   disabledBackgroundColor: Colors.grey[300],
                   foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
-            if (!_isLocationValid)
+            if (!canProceed)
                const Padding(
                  padding: EdgeInsets.only(top: 8.0),
-                 child: Text('Reach location to enable Check-in', style: TextStyle(color: Colors.red, fontSize: 12), textAlign: TextAlign.center),
+                 child: Center(
+                   child: Text(
+                     'You must be within 200m of location', 
+                     style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)
+                   ),
+                 ),
                ),
           ],
         ),
@@ -435,7 +595,7 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('WORK UPDATES', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const Text('WORK TIMELINE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
               if (_currentStep == GigStep.working)
                TextButton.icon(
                  onPressed: _addWorkUpdate,
@@ -451,10 +611,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
             itemCount: _updates.length + (_checkInPhoto != null ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == _updates.length && _checkInPhoto != null) {
-                 // Check-in entry at bottom
                  return _buildTimelineItem(
                    title: 'Checked In',
-                   time: _checkInTime!,
+                   time: _checkInTime ?? DateTime.now(),
                    photo: _checkInPhoto!,
                    isStart: true,
                  );
@@ -520,19 +679,26 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
   Widget _buildCheckOutSection() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: SizedBox(
-        width: double.infinity,
-        height: 54,
-        child: ElevatedButton.icon(
-          onPressed: _handleCheckOut,
-          icon: const Icon(Icons.check_circle_outline),
-          label: const Text('FINISH GIG'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           const Text('STEP 3: COMPLETION', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+           const SizedBox(height: 8),
+           SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: _handleCheckOut,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('FINISH GIG'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -568,7 +734,7 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
               child: const Text(
-                'Safety: Please wear your safety vest at all times on site.',
+                'Instructions: Maintain professional conduct. Report any safety concerns immediately.',
                 style: TextStyle(color: Colors.blue, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
@@ -612,14 +778,19 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                children: [
                  Expanded(
                    child: OutlinedButton.icon(
-                     onPressed: (){}, 
+                     onPressed: () {
+                       context.push('/chat', extra: {
+                         'taskId': widget.task.id,
+                         'title': widget.task.companyName,
+                       });
+                     }, 
                      icon: const Icon(Icons.chat_bubble_outline), 
                      label: const Text('Chat with Employer')
                    ),
                  ),
                  const SizedBox(width: 12),
                  IconButton(
-                   onPressed: () => launchUrl(Uri.parse('tel:1234567890')), 
+                   onPressed: () => launchUrl(Uri.parse('tel:123')), 
                    icon: const Icon(Icons.phone, color: Colors.green),
                    style: IconButton.styleFrom(backgroundColor: Colors.green[50]),
                  ),
@@ -631,35 +802,38 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                children: [
                  ActionChip(label: const Text('Reached Location'), onPressed: (){}),
                  ActionChip(label: const Text('Work Started'), onPressed: (){}),
-                 ActionChip(label: const Text('Facing Issue'), onPressed: (){}),
+                 ActionChip(label: const Text('Facing Issue'), onPressed: _reportIssue),
                ],
              ),
           ],
         ),
     );
   }
-
+  
   // 6. EARNINGS
   Widget _buildEarningsCard() {
      return Card(
        margin: const EdgeInsets.all(16),
        color: Colors.green[50],
-       child: const ListTile(
-         leading: Icon(Icons.monetization_on, color: Colors.green),
-         title: Text('Total Payout: \$120.00'),
-         subtitle: Text('Payment in Escrow • Released within 24h'),
-         trailing: Icon(Icons.check_circle, color: Colors.green),
+       child: ListTile(
+         leading: const Icon(Icons.monetization_on, color: Colors.green),
+         title: Text('Total Payout: \$${widget.task.payout}', style: const TextStyle(fontWeight: FontWeight.bold)),
+         subtitle: const Text('Payment in Escrow • Released within 24h'),
+         trailing: const Icon(Icons.check_circle, color: Colors.green),
        ),
      );
   }
 
   // 7. HELP
   Widget _buildHelpSection() {
-    return Center(
-      child: TextButton.icon(
-        onPressed: (){},
-        icon: const Icon(Icons.flag_outlined, color: Colors.red),
-        label: const Text('Report an Issue', style: TextStyle(color: Colors.red)),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Center(
+        child: TextButton.icon(
+          onPressed: _reportIssue,
+          icon: const Icon(Icons.flag_outlined, color: Colors.red),
+          label: const Text('Report an Issue', style: TextStyle(color: Colors.red)),
+        ),
       ),
     );
   }

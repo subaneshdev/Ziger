@@ -156,7 +156,7 @@ public class GigService {
           return savedTask;
      }
 
-     public Task startGig(UUID workerId, UUID gigId) {
+     public Task startGig(UUID workerId, UUID gigId, String checkInPhotoUrl) {
           Task task = taskRepository.findById(gigId)
                     .orElseThrow(() -> new RuntimeException("Gig not found"));
 
@@ -174,6 +174,9 @@ public class GigService {
           if (task.getActualStartTime() == null) {
                task.setActualStartTime(OffsetDateTime.now());
           }
+          if (checkInPhotoUrl != null) {
+               task.setCheckInPhotoUrl(checkInPhotoUrl);
+          }
 
           return taskRepository.save(task);
      }
@@ -186,12 +189,12 @@ public class GigService {
                throw new RuntimeException("Not authorized");
           }
 
-          task.setProofPhotoUrl(photoUrl);
+          task.setProofPhotoUrl(photoUrl); // Keeps latest update
           return taskRepository.save(task);
      }
 
      @Transactional
-     public Task completeGig(UUID workerId, UUID gigId) {
+     public Task completeGig(UUID workerId, UUID gigId, String checkOutPhotoUrl) {
           Task task = taskRepository.findById(gigId)
                     .orElseThrow(() -> new RuntimeException("Gig not found"));
 
@@ -201,6 +204,10 @@ public class GigService {
 
           task.setStatus("completed");
           task.setActualEndTime(OffsetDateTime.now());
+          if (checkOutPhotoUrl != null) {
+               task.setCheckOutPhotoUrl(checkOutPhotoUrl);
+          }
+
           task = taskRepository.save(task);
 
           // Release Funds

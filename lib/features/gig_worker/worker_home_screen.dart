@@ -125,7 +125,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 if (_assignedTask != null)
                    GestureDetector(
                     onTap: () {
-                       context.push('/live-gig-tracking', extra: _assignedTask);
+                       context.push('/worker/ongoing-gig', extra: _assignedTask);
                     },
                     child: Container(
                       width: double.infinity,

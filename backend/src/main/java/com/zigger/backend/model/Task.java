@@ -58,7 +58,13 @@ public class Task {
     private OffsetDateTime actualEndTime;
 
     @Column(name = "proof_photo_url")
-    private String proofPhotoUrl;
+    private String proofPhotoUrl; // Can be used for intermediate updates
+
+    @Column(name = "check_in_photo_url")
+    private String checkInPhotoUrl;
+
+    @Column(name = "check_out_photo_url")
+    private String checkOutPhotoUrl;
 
     @ManyToOne
     @JoinColumn(name = "created_by", nullable = false)
