@@ -29,6 +29,13 @@ class ApiTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<List<Task>> fetchAssignedTasks() async {
+    final response = await _api.get('/gigs/assigned'); // Header X-User-Id is handled by ApiService interceptor (ideally)
+    if (response == null) return [];
+    return (response as List).map((json) => Task.fromJson(json)).toList();
+  }
+
+  @override
   Future<void> createTask(Task task) async {
     await _api.post('/gigs', task.toJson());
   }
@@ -96,15 +103,29 @@ class ApiTaskRepository implements TaskRepository {
 
   @override
   Future<List<TaskApplication>> getApplications(String taskId) async {
+    print('DEBUG: Getting applications for task: $taskId');
     final response = await _api.get('/gigs/$taskId/applications');
-    if (response == null) return [];
+    print('DEBUG: Applications response: $response');
+    if (response == null) {
+      print('DEBUG: Response is null');
+      return [];
+    }
+    print('DEBUG: Parsing ${(response as List).length} applications');
     return (response as List).map((json) => TaskApplication.fromJson(json)).toList();
   }
-  
+
   @override
-  Future<List<Task>> fetchTasksByWorker(String workerId) async {
-    final response = await _api.get('/gigs/assigned');
-    if (response == null) return [];
-    return (response as List).map((json) => Task.fromJson(json)).toList();
+  Future<TaskApplication?> getMyApplication(String taskId) async {
+    // 204 No Content returns null in ApiService usually, or throws exception?
+    // Assuming ApiService.get handles 204 by returning null.
+    // Or we handle error.
+    try {
+      final response = await _api.get('/gigs/$taskId/my-application');
+      if (response == null) return null;
+      return TaskApplication.fromJson(response);
+    } catch (e) {
+      // 204 often results in empty body which works fine, but 404/others throw.
+      return null;
+    }
   }
 }

@@ -36,7 +36,7 @@ import 'data/repositories/chat_repository.dart';
 import 'features/chat/chat_screen.dart';
 import 'data/repositories/notification_repository.dart';
 import 'data/repositories/review_repository.dart';
-import 'features/shared/notifications_screen.dart';
+import 'features/notifications/notification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -110,8 +110,8 @@ class _ZiggersAppState extends State<ZiggersApp> {
           return '/role-selection';
         }
 
-        // 3. Role Selected -> Check KYC (Allow Pending to proceed)
-        if (role != 'admin' && !authProvider.isKycApproved && authProvider.userProfile?.kycStatus != 'pending') {
+        // 3. Role Selected -> Check KYC
+        if (role != 'admin' && !authProvider.isKycApproved) {
              // Worker
              if (role == 'worker') {
                 if (state.uri.toString() == '/worker-kyc') return null;
@@ -236,7 +236,7 @@ class _ZiggersAppState extends State<ZiggersApp> {
         ),
         GoRoute(
           path: '/notifications',
-          builder: (context, state) => const NotificationsScreen(),
+          builder: (context, state) => const NotificationScreen(),
         ),
         GoRoute(
           path: '/worker/ongoing-gig',
