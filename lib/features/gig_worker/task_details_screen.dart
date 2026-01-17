@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui'; // Added for ImageFilter.blur
 import '../../data/repositories/task_repository.dart';
 import '../auth/auth_provider.dart';
 import '../../core/theme.dart';
@@ -15,7 +16,6 @@ class TaskDetailsScreen extends StatefulWidget {
 }
 
 class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
-  // Local state
   String _status = 'open';
   bool _isApplying = false;
 
@@ -28,6 +28,19 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
        _status = 'assigned';
        if (widget.task.startedAt != null) _status = 'in_progress';
        if (widget.task.completedAt != null) _status = 'completed';
+    } else {
+       _checkApplicationStatus();
+    }
+  }
+
+  Future<void> _checkApplicationStatus() async {
+    try {
+       final application = await context.read<TaskRepository>().getMyApplication(widget.task.id);
+       if (application != null && mounted) {
+           setState(() => _status = 'applied');
+       }
+    } catch (e) {
+       debugPrint('Error checking status: $e');
     }
   }
 
@@ -40,279 +53,221 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
       await context.read<TaskRepository>().applyForGig(widget.task.id, user.id);
       
       if (mounted) {
-        setState(() {
-          _status = 'applied'; // Update local state to show 'Applied'
-        });
+        setState(() => _status = 'applied');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Application Submitted! Waiting for approval.')),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error applying: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isApplying = false);
     }
   }
 
-  void _startGig() {
-    // Navigate to Active Gig Screen
-    context.push('/active-gig', extra: widget.task);
+  void _startGig() => context.push('/active-gig', extra: widget.task);
+
+  String _getCategoryImage(String category) {
+    switch (category.toLowerCase()) {
+      case 'catering': return 'https://images.unsplash.com/photo-1555244162-803834f70033';
+      case 'logistics': return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d';
+      case 'retail': return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8';
+      case 'cleaning': return 'https://images.unsplash.com/photo-1581578731117-10452966116a';
+      case 'events': return 'https://images.unsplash.com/photo-1511578314322-379afb476865';
+      default: return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab'; // General
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Date Formatting (Simple manual formatting to avoid intl dependency if not added)
+    final date = widget.task.startTime ?? DateTime.now();
+    final months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    final monthStr = months[date.month - 1];
+    final dayStr = date.day.toString();
+    final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Content
           CustomScrollView(
             slivers: [
-              // 1. Header Image
+              // --- 1. Hero Image (Luma Style) ---
               SliverAppBar(
-                expandedHeight: 300,
+                expandedHeight: 280,
                 pinned: true,
-                backgroundColor: Colors.transparent,
+                backgroundColor: Colors.white,
+                elevation: 0,
                 leading: Container(
                   margin: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2), // Glassmorphism
                     shape: BoxShape.circle,
                   ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                  child: ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
                   ),
                 ),
-                actions: [
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.ios_share, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.favorite_border, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
                 flexibleSpace: FlexibleSpaceBar(
+                  stretchModes: const [StretchMode.zoomBackground],
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        'https://images.unsplash.com/photo-1511578314322-379afb476865',
+                        _getCategoryImage(widget.task.category),
                         fit: BoxFit.cover,
                       ),
-                      // Gradient Overlay for text visibility if needed, or overlay content like the image
-                      Positioned(
-                        bottom: 20,
-                        left: 20,
-                        child: Row(
-                          children: [
-                            _buildImageThumb('https://randomuser.me/api/portraits/thumb/men/1.jpg'),
-                            const SizedBox(width: 8),
-                             _buildImageThumb('https://randomuser.me/api/portraits/thumb/women/2.jpg'),
-                            const SizedBox(width: 8),
-                             _buildImageThumb('https://randomuser.me/api/portraits/thumb/men/3.jpg'),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.7),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                              child: const Center(
-                                child: Text('+3', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                          ],
+                      // Gradient for readability
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.3),
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.1),
+                            ],
+                          ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
               ),
 
-              // 2. Body Details
+              // --- 2. Content Body ---
               SliverToBoxAdapter(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                  ),
-                  transform: Matrix4.translationValues(0, -20, 0), // Pull up overlap
-                  padding: const EdgeInsets.all(24),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Title Header
+                      // Date Block & Title
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Calendar Block
+                          Container(
+                            width: 50,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(monthStr, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+                                Text(dayStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Title
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   widget.task.title,
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textMain,
-                                  ),
+                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    const Icon(Icons.location_on, size: 14, color: AppColors.textSub),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      widget.task.locationName,
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.textSub,
-                                      ),
+                                    CircleAvatar(
+                                      radius: 10,
+                                      backgroundColor: Colors.grey.shade200,
+                                      child: const Icon(Icons.business, size: 12, color: Colors.black),
                                     ),
+                                    const SizedBox(width: 8),
+                                    Text('Hosted by ${widget.task.companyName}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                                   ],
                                 ),
                               ],
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFD700).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.star, size: 14, color: Colors.orange),
-                                    SizedBox(width: 4),
-                                    Text('4.9', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                widget.task.companyName,
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSub),
-                              ),
-                            ],
-                          ),
                         ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Stats Row
-                      Row(
-                        children: [
-                          _buildStatTag(Icons.check_circle, 'Active', Colors.green),
-                          const SizedBox(width: 12),
-                          _buildStatTag(Icons.remove_red_eye, '124 Views', Colors.blue),
-                          const SizedBox(width: 12),
-                          _buildStatTag(Icons.access_time_filled, 'Urgent', Colors.orange),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Job Details
-                      const Text(
-                        'Job Details',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'We are looking for energetic individuals to help with the setup of a major tech conference. Tasks include arranging chairs, setting up signage, and assisting vendors with load-in. No prior experience required, but must be able to lift 25lbs. Read More',
-                        style: TextStyle(color: Colors.grey.shade600, height: 1.5, fontSize: 15),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Amenities
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildAmenityCard(Icons.lunch_dining, 'Meal\nProvided'),
-                          _buildAmenityCard(Icons.checkroom, 'Wear\nBlack'),
-                          _buildAmenityCard(Icons.local_parking, 'Free\nParking'),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Hiring Manager
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 24,
-                              backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Alex Morgan',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                  Text(
-                                    'Hiring Manager • ${widget.task.companyName}',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: const Icon(Icons.chat_bubble_outline, size: 20),
-                            ),
-                          ],
-                        ),
                       ),
                       
-                      const SizedBox(height: 100), // Space for bottom bar
+                      const SizedBox(height: 32),
+                      const Divider(height: 1),
+                      const SizedBox(height: 32),
+
+                      // Location & Time
+                      _buildInfoRow(Icons.location_on_outlined, widget.task.locationName, 'View on Map'),
+                      const SizedBox(height: 24),
+                      _buildInfoRow(Icons.access_time, '$timeStr • ${widget.task.time} Hours Estimate', 'Add to Calendar'),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // About Section
+                      const Text('About Event', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.task.description.isNotEmpty ? widget.task.description : "No description provided.",
+                        style: TextStyle(fontSize: 16, height: 1.6, color: Colors.grey.shade800),
+                      ),
+                      
+                      const SizedBox(height: 32),
+
+                      // Amenities / Requirements Grid
+                      if (widget.task.requirements.isNotEmpty) ...[
+                        const Text('Requirements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            if (widget.task.requirements['gloves_mask'] == 'Yes') _buildChip(Icons.masks, 'Mask Required'),
+                            if (widget.task.requirements['dress_code'] != null && widget.task.requirements['dress_code'].toString().isNotEmpty)
+                               _buildChip(Icons.checkroom, widget.task.requirements['dress_code']),
+                             _buildChip(Icons.group, '${widget.task.workersRequired} Workers Needed'),
+                             _buildChip(Icons.verified_user, 'ID Verification'),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                      
+                      // Map Placeholder (Static for MVP)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          height: 150,
+                          width: double.infinity,
+                          color: Colors.grey.shade100,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network('https://maps.googleapis.com/maps/api/staticmap?center=${widget.task.location.latitude},${widget.task.location.longitude}&zoom=14&size=600x300&key=YOUR_API_KEY', 
+                                errorBuilder: (c,e,s) => const Center(child: Icon(Icons.map, color: Colors.grey)),
+                                fit: BoxFit.cover,
+                              ),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+                                  child: const Text('Get Directions', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+
+
+                      const SizedBox(height: 100), // Bottom padding
                     ],
                   ),
                 ),
@@ -320,43 +275,30 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             ],
           ),
 
-          // 3. Sticky Bottom Bar
+          // --- 3. Persistent Bottom Bar ---
           Positioned(
-            bottom: 30, // Floating slightly above bottom
-            left: 20,
-            right: 20,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Row(
                 children: [
-                  const SizedBox(width: 24),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                       Text(
-                        '\$${widget.task.payout}', // Displaying payout as rate
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        'Per hour',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
+                      const Text('TOTAL PAYOUT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                      const SizedBox(height: 4),
+                      Text('\$${widget.task.payout}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                     ],
                   ),
                   const Spacer(),
-                  // Action Button Logic wrapping UI
-                  _buildStickyActionButton(context),
+                  Expanded(flex: 2, child: _buildStickyActionButton(context)),
                 ],
               ),
             ),
@@ -366,20 +308,62 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     );
   }
 
+  Widget _buildInfoRow(IconData icon, String text, String actionText) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, size: 24, color: Colors.black),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(actionText, style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade700),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStickyActionButton(BuildContext context) {
     VoidCallback? onPressed;
     String label = 'Apply Now';
-    Color bgColor = const Color(0xFFFFD700);
-    Color textColor = Colors.black;
+    Color bgColor = Colors.black; // Luma style black button
+    Color textColor = Colors.white;
 
-       switch (_status) {
+    switch (_status) {
       case 'open':
         onPressed = _isApplying ? null : _applyForGig;
-        label = _isApplying ? 'Applying...' : 'Apply Now';
+        label = _isApplying ? 'Applying...' : 'Apply to Join';
         break;
       case 'applied':
         onPressed = null;
-        label = 'Applied (Waiting)';
+        label = 'Applied';
         bgColor = Colors.grey.shade300;
         textColor = Colors.grey.shade600;
         break;
@@ -387,24 +371,16 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         onPressed = _startGig;
         label = 'Start Gig';
         bgColor = AppColors.primary;
-        textColor = Colors.white;
         break;
       case 'in_progress':
-        onPressed = _startGig; // Resume
-        label = 'Resume Gig';
+        onPressed = _startGig; 
+        label = 'Resume';
         bgColor = AppColors.secondary;
-        break;
-      case 'review':
-        onPressed = null;
-        label = 'Under Review';
-        bgColor = Colors.orange.shade100;
-        textColor = Colors.orange.shade800;
         break;
       case 'completed':
         onPressed = null;
-        label = 'Done';
-        bgColor = AppColors.success;
-        textColor = Colors.white;
+        label = 'Completed';
+        bgColor = Colors.green;
         break;
     }
 
@@ -414,72 +390,10 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         backgroundColor: bgColor,
         foregroundColor: textColor,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward, size: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatTag(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-             label,
-             style: TextStyle(color: AppColors.textMain, fontWeight: FontWeight.w600, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmenityCard(IconData icon, String label) {
-    return Container(
-      width: 100, // Fixed width for uniform look
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 28, color: AppColors.textMain),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSub, fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageThumb(String url) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white, width: 2),
-        image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
-      ),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
     );
   }
 }
-

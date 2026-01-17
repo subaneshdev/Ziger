@@ -36,7 +36,7 @@ import 'data/repositories/chat_repository.dart';
 import 'features/chat/chat_screen.dart';
 import 'data/repositories/notification_repository.dart';
 import 'data/repositories/review_repository.dart';
-import 'features/shared/notifications_screen.dart';
+import 'features/notifications/notification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -236,7 +236,7 @@ class _ZiggersAppState extends State<ZiggersApp> {
         ),
         GoRoute(
           path: '/notifications',
-          builder: (context, state) => const NotificationsScreen(),
+          builder: (context, state) => const NotificationScreen(),
         ),
         GoRoute(
           path: '/worker/ongoing-gig',

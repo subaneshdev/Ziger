@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'dart:convert';
 
 class Task {
   final String id;
@@ -95,7 +96,9 @@ class Task {
       startTime: json['start_time'] != null ? DateTime.tryParse(json['start_time']) : null,
       endTime: json['end_time'] != null ? DateTime.tryParse(json['end_time']) : null,
       category: json['category'] ?? 'general',
-      requirements: json['requirements'] ?? {},
+      requirements: json['requirements'] is String
+          ? Map<String, dynamic>.from(jsonDecode(json['requirements']))
+          : (json['requirements'] ?? {}),
       proofRequired: List<String>.from(json['proof_required'] ?? []),
       assignedTo: json['assigned_to'] is Map ? json['assigned_to']['id'] : json['assigned_to'],
       assignedWorkerName: json['assigned_to'] is Map ? json['assigned_to']['full_name'] : null,
@@ -109,6 +112,35 @@ class Task {
       lastUpdated: json['last_updated'] != null ? DateTime.tryParse(json['last_updated']) : null,
       inProgressPhotos: List<String>.from(json['in_progress_photos'] ?? []),
     );
+  }
+
+  String get categoryImageUrl {
+    switch (category.toLowerCase()) {
+      case 'catering':
+        return 'https://images.unsplash.com/photo-1556910103-1c02745a30bf?auto=format&fit=crop&w=800&q=80';
+      case 'driver':
+      case 'drivers':
+        return 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&w=800&q=80';
+      case 'packers':
+      case 'logistics':
+        return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80';
+      case 'cleaning':
+        return 'https://images.unsplash.com/photo-1581578731117-104f2a896572?auto=format&fit=crop&w=800&q=80';
+      case 'stall':
+      case 'retail':
+        return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80';
+      case 'event_coord':
+      case 'events':
+      case 'communication':
+      case 'performer':
+         return 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80';
+      case 'construction':
+         return 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80';
+      case 'volunteers':
+         return 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=800&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=800&q=80'; // General work
+    }
   }
 
   Map<String, dynamic> toJson() {

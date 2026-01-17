@@ -101,10 +101,10 @@ class ApiService {
       } catch (e) {
         return response.body;
       }
-    } else if (response.statusCode == 404) {
-      throw Exception('Endpoint Not Found (404). Ensure Backend is running and URL is correct. ${response.body}');
-      print('DEBUG: API Error Body: ${response.body}'); // LOG BODY
-      throw Exception('API Error: ${response.statusCode} ${response.body}');
+    } else {
+      // Handle all other error codes (400, 401, 403, 500 etc)
+      print('DEBUG: API Error: ${response.statusCode} - ${response.body}');
+      throw Exception('API Error ${response.statusCode}: ${response.body}');
     }
   }
 }

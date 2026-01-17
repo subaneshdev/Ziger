@@ -93,6 +93,24 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                task.categoryImageUrl,
+                                height: 140,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: 140,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade200,
+                                    child: Center(child: Icon(Icons.image_not_supported, color: Colors.grey.shade400)),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -163,68 +181,132 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
     );
   }
   void _showApplicationsDialog(BuildContext context, String taskId) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Applications'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: FutureBuilder<List<dynamic>>( // Using dynamic to avoid circular dep if types not ready, but better use TaskApplication
-            future: context.read<TaskRepository>().getApplications(taskId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
-              }
-              if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              }
-              final apps = snapshot.data ?? [];
-              if (apps.isEmpty) {
-                return const Text('No applications yet.');
-              }
-              return ListView.builder(
-                shrinkWrap: true,
-                itemCount: apps.length,
-                itemBuilder: (context, index) {
-                  final app = apps[index]; 
-                  // Assuming app is TaskApplication, but allowing for dynamic if needed
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: NetworkImage(app.worker.profilePictureUrl ?? ''),
-                      child: app.worker.profilePictureUrl == null ? const Icon(Icons.person) : null,
-                    ),
-                    title: Text(app.worker.fullName),
-                    subtitle: Text(app.pitchMessage ?? 'No message'),
-                    trailing: ElevatedButton(
-                      onPressed: () async {
-                        try {
-                           await context.read<TaskRepository>().assignWorker(taskId, app.worker.id);
-                           if (context.mounted) {
-                             Navigator.pop(context);
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Worker Assigned!')));
-                             _loadTasks(); // Refresh list to show "Assigned/In Progress" status or button change
-                           }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-                      child: const Text('Assign'),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 600,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Applications',
+              style: GoogleFonts.outfit(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+             Expanded(
+               child: FutureBuilder<List<dynamic>>(
+                  future: context.read<TaskRepository>().getApplications(taskId),
+                  builder: (context, snapshot) {
+                     if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                     }
+                     if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+                     }
+                     final apps = snapshot.data ?? [];
+                     if (apps.isEmpty) {
+                        return const Center(child: Text('No applications yet', style: TextStyle(color: Colors.black, fontSize: 16)));
+                     }
+                     
+                     return ListView.builder(
+                       itemCount: apps.length,
+                       itemBuilder: (context, index) {
+                         final app = apps[index];
+                         return Container(
+                           margin: const EdgeInsets.only(bottom: 16),
+                           padding: const EdgeInsets.all(16),
+                           decoration: BoxDecoration(
+                             color: Colors.grey.shade50,
+                             borderRadius: BorderRadius.circular(12),
+                             border: Border.all(color: Colors.grey.shade200),
+                           ),
+                           child: Column(
+                             crossAxisAlignment: CrossAxisAlignment.start,
+                             children: [
+                               Row(
+                                 children: [
+                                   CircleAvatar(
+                                     backgroundColor: Colors.blue.shade100,
+                                     child: const Icon(Icons.person, color: Colors.blue),
+                                   ),
+                                   const SizedBox(width: 12),
+                                   Expanded(
+                                     child: Text(
+                                       app.worker.fullName ?? 'Worker',
+                                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                               const SizedBox(height: 8),
+                               Text(
+                                 app.pitchMessage ?? 'No message',
+                                 style: const TextStyle(color: Colors.black87),
+                               ),
+                               const SizedBox(height: 12),
+                               Row(
+                                 children: [
+                                   Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () async {
+                                          try {
+                                            // Show loading indicator or disable button? For now just await
+                                            // Ideally we should have isHiring state but local var is hard in ListView builder
+                                            await context.read<TaskRepository>().assignWorker(taskId, app.worker.id);
+                                            if (context.mounted) {
+                                              Navigator.pop(context);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Worker hired successfully! You can now chat with them from the Chats tab.'),
+                                                  backgroundColor: Colors.green,
+                                                  duration: Duration(seconds: 4),
+                                                ),
+                                              );
+                                              _loadTasks();
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              debugPrint('Hire Error: $e');
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error hiring: $e')));
+                                            }
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                                        child: const Text('Hire', style: TextStyle(color: Colors.white)),
+                                      ),
+                                   )
+                                 ],
+                               )
+                             ],
+                           ),
+                         );
+                       },
+                     );
+                  },
+               ),
+            ),
+          ],
+        ),
       ),
     );
   }

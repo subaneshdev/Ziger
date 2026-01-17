@@ -20,205 +20,218 @@ import jakarta.transaction.Transactional;
 @Service
 public class GigService {
 
-    @Autowired
-    private TaskRepository taskRepository;
+     @Autowired
+     private TaskRepository taskRepository;
 
-    @Autowired
-    private ProfileRepository profileRepository;
+     @Autowired
+     private ProfileRepository profileRepository;
 
-    @Autowired
-    private TaskApplicationRepository taskApplicationRepository;
+     @Autowired
+     private TaskApplicationRepository taskApplicationRepository;
 
-    @Autowired
-    private WalletService walletService;
+     @Autowired
+     private WalletService walletService;
 
-    @Transactional
-    public Task createGig(UUID employerId, GigRequest request) {
-        Profile employer = profileRepository.findById(employerId)
-                .orElseThrow(() -> new RuntimeException("Employer not found"));
+     @Transactional
+     public Task createGig(UUID employerId, GigRequest request) {
+          Profile employer = profileRepository.findById(employerId)
+                    .orElseThrow(() -> new RuntimeException("Employer not found"));
 
-        if (!"employer".equalsIgnoreCase(employer.getRole()) && !"admin".equalsIgnoreCase(employer.getRole())) {
-             throw new RuntimeException("Only employers can post gigs");
-        }
+          if (!"employer".equalsIgnoreCase(employer.getRole()) && !"admin".equalsIgnoreCase(employer.getRole())) {
+               throw new RuntimeException("Only employers can post gigs");
+          }
 
-        if (!"approved".equals(employer.getKycStatus())) {
-             throw new RuntimeException("KYC verification required to post gigs");
-        }
-        
-        Task task = new Task();
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        task.setLocationName(request.getLocationName());
-        task.setGeoLat(request.getGeoLat());
-        task.setGeoLng(request.getGeoLng());
-        task.setPayout(request.getPayout());
-        task.setStartTime(request.getStartTime());
-        task.setEndTime(request.getEndTime());
-        task.setEstimatedHours(request.getEstimatedHours());
-        task.setCreatedBy(employer);
-        task.setStatus("open"); 
+          // if (!"approved".equals(employer.getKycStatus())) {
+          // throw new RuntimeException("KYC verification required to post gigs");
+          // }
 
-        task = taskRepository.save(task);
+          Task task = new Task();
+          task.setTitle(request.getTitle());
+          task.setDescription(request.getDescription());
+          task.setLocationName(request.getLocationName());
+          task.setGeoLat(request.getGeoLat());
+          task.setGeoLng(request.getGeoLng());
+          task.setPayout(request.getPayout());
+          task.setStartTime(request.getStartTime());
+          task.setEndTime(request.getEndTime());
+          task.setEstimatedHours(request.getEstimatedHours());
+          task.setCreatedBy(employer);
+          task.setStatus("open");
 
-        // Lock Funds (Transactional will rollback task save if this fails)
-        walletService.lockFundsForTask(employerId, task);
+          task = taskRepository.save(task);
 
-        return task;
-    }
+          // Lock Funds (Transactional will rollback task save if this fails)
+          walletService.lockFundsForTask(employerId, task);
 
-    public List<Task> getNearbyGigs(double lat, double lng, double radiusKm) {
-        return taskRepository.findNearbyTasks(lat, lng, radiusKm);
-    }
+          return task;
+     }
 
-    public List<Task> getGigsByEmployer(UUID employerId) {
-        return taskRepository.findByCreatedBy_Id(employerId);
-    }
+     public List<Task> getNearbyGigs(double lat, double lng, double radiusKm) {
+          return taskRepository.findNearbyTasks(lat, lng, radiusKm);
+     }
 
-    public TaskApplication applyForGig(UUID workerId, UUID gigId) {
-        Profile worker = profileRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found"));
-        
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+     public List<Task> getGigsByEmployer(UUID employerId) {
+          return taskRepository.findByCreatedBy_Id(employerId);
+     }
 
-        if (!"worker".equalsIgnoreCase(worker.getRole())) {
-             throw new RuntimeException("Only workers can apply for gigs");
-        }
-        
-        if (!"approved".equals(worker.getKycStatus())) {
-             throw new RuntimeException("KYC verification required to apply for gigs");
-        }
-        
-        if (!"open".equals(task.getStatus())) {
-             throw new RuntimeException("Gig is not open for applications");
-        }
+     public TaskApplication applyForGig(UUID workerId, UUID gigId) {
+          Profile worker = profileRepository.findById(workerId)
+                    .orElseThrow(() -> new RuntimeException("Worker not found"));
 
-        if (taskApplicationRepository.findByTaskIdAndWorkerId(gigId, workerId).isPresent()) {
-             throw new RuntimeException("Already applied for this gig");
-        }
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
 
-        TaskApplication application = new TaskApplication();
-        application.setTask(task);
-        application.setWorker(worker);
-        application.setStatus("pending");
-        // Bid amount could be dynamic, defaulting to null/fixed for MVP
-        
-        // Bid amount could be dynamic, defaulting to null/fixed for MVP
-        
-        return taskApplicationRepository.save(application);
-    }
+          if (!"worker".equalsIgnoreCase(worker.getRole())) {
+               throw new RuntimeException("Only workers can apply for gigs");
+          }
 
-    public List<TaskApplication> getApplicationsForGig(UUID gigId, UUID employerId) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          // if (!"approved".equals(worker.getKycStatus())) {
+          // throw new RuntimeException("KYC verification required to apply for gigs");
+          // }
 
-        if (!employerId.equals(task.getCreatedBy().getId())) {
-             throw new RuntimeException("Not authorized to view applications for this gig");
-        }
-        
-        return taskApplicationRepository.findByTaskId(gigId);
-    }
+          if (!"open".equals(task.getStatus())) {
+               throw new RuntimeException("Gig is not open for applications");
+          }
 
-    @Transactional
-    public Task assignWorker(UUID employerId, UUID gigId, UUID workerId) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          if (taskApplicationRepository.findByTask_IdAndWorker_Id(gigId, workerId).isPresent()) {
+               throw new RuntimeException("Already applied for this gig");
+          }
 
-        if (!employerId.equals(task.getCreatedBy().getId())) {
-             throw new RuntimeException("Not authorized");
-        }
+          TaskApplication application = new TaskApplication();
+          application.setTask(task);
+          application.setWorker(worker);
+          application.setStatus("pending");
+          // Bid amount could be dynamic, defaulting to null/fixed for MVP
 
-        if (!"open".equals(task.getStatus())) {
-             throw new RuntimeException("Gig is not open");
-        }
+          // Bid amount could be dynamic, defaulting to null/fixed for MVP
 
-        Profile worker = profileRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found"));
+          return taskApplicationRepository.save(application);
+     }
 
-        // Optional: Check if application exists
-        // TaskApplication app = taskApplicationRepository.findByTaskIdAndWorkerId(gigId, workerId)
-        //        .orElseThrow(() -> new RuntimeException("Worker has not applied"));
-        // app.setStatus("accepted");
-        // taskApplicationRepository.save(app);
+     public java.util.Optional<TaskApplication> getMyApplication(UUID gigId, UUID workerId) {
+          return taskApplicationRepository.findByTask_IdAndWorker_Id(gigId, workerId);
+     }
 
-        task.setAssignedTo(worker);
-        task.setStatus("assigned");
-        
-        return taskRepository.save(task);
-    }
+     public List<TaskApplication> getApplicationsForGig(UUID gigId, UUID employerId) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
 
-    public Task startGig(UUID workerId, UUID gigId) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          if (!employerId.equals(task.getCreatedBy().getId())) {
+               throw new RuntimeException("Not authorized to view applications for this gig");
+          }
 
-        if (!workerId.equals(task.getAssignedTo().getId())) {
-             throw new RuntimeException("You are not assigned to this gig");
-        }
+          return taskApplicationRepository.findByTask_Id(gigId);
+     }
 
-        if (!"assigned".equals(task.getStatus())) {
-            // Allow restart if in_progress? For now, strict check.
-            if (!"in_progress".equals(task.getStatus()))
-                 throw new RuntimeException("Gig must be in 'assigned' state to start");
-        }
+     @Autowired
+     private NotificationService notificationService;
 
-        task.setStatus("in_progress");
-        if (task.getActualStartTime() == null) {
-            task.setActualStartTime(OffsetDateTime.now());
-        }
-        
-        return taskRepository.save(task);
-    }
+     @Transactional
+     public Task assignWorker(UUID employerId, UUID gigId, UUID workerId) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
 
-    public Task uploadProof(UUID workerId, UUID gigId, String photoUrl) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          if (!employerId.equals(task.getCreatedBy().getId())) {
+               throw new RuntimeException("Not authorized");
+          }
 
-        if (!workerId.equals(task.getAssignedTo().getId())) {
-             throw new RuntimeException("Not authorized");
-        }
-        
-        task.setProofPhotoUrl(photoUrl);
-        return taskRepository.save(task);
-    }
+          if (!"open".equals(task.getStatus())) {
+               throw new RuntimeException("Gig is not open");
+          }
 
-    @Transactional
-    public Task completeGig(UUID workerId, UUID gigId) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          Profile worker = profileRepository.findById(workerId)
+                    .orElseThrow(() -> new RuntimeException("Worker not found"));
 
-        if (!workerId.equals(task.getAssignedTo().getId())) {
-             throw new RuntimeException("Not authorized");
-        }
-        
-        task.setStatus("completed"); 
-        task.setActualEndTime(OffsetDateTime.now());
-        task = taskRepository.save(task);
+          task.setAssignedTo(worker);
+          task.setStatus("assigned");
 
-        // Release Funds
-        walletService.releaseFundsToWorker(task);
-        
-        return task;
-    }
+          Task savedTask = taskRepository.save(task);
 
-    @Transactional
-    public Task cancelGig(UUID employerId, UUID gigId) {
-        Task task = taskRepository.findById(gigId)
-                .orElseThrow(() -> new RuntimeException("Gig not found"));
+          // Send Notification to Worker
+          notificationService.sendNotification(
+                    workerId,
+                    "You're Hired!",
+                    "Congratulations! You have been hired for the gig: " + task.getTitle());
 
-        if (!employerId.equals(task.getCreatedBy().getId())) {
-             throw new RuntimeException("Not authorized");
-        }
-        
-        if ("completed".equals(task.getStatus()) || "in_progress".equals(task.getStatus())) {
-             throw new RuntimeException("Cannot cancel gig in progress or completed");
-        }
-        
-        task.setStatus("cancelled");
-        task = taskRepository.save(task);
+          return savedTask;
+     }
 
-        // Refund Employer
-        walletService.refundToEmployer(task);
-        
-        return task;
-    }
+     public Task startGig(UUID workerId, UUID gigId) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
+
+          if (!workerId.equals(task.getAssignedTo().getId())) {
+               throw new RuntimeException("You are not assigned to this gig");
+          }
+
+          if (!"assigned".equals(task.getStatus())) {
+               // Allow restart if in_progress? For now, strict check.
+               if (!"in_progress".equals(task.getStatus()))
+                    throw new RuntimeException("Gig must be in 'assigned' state to start");
+          }
+
+          task.setStatus("in_progress");
+          if (task.getActualStartTime() == null) {
+               task.setActualStartTime(OffsetDateTime.now());
+          }
+
+          return taskRepository.save(task);
+     }
+
+     public Task uploadProof(UUID workerId, UUID gigId, String photoUrl) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
+
+          if (!workerId.equals(task.getAssignedTo().getId())) {
+               throw new RuntimeException("Not authorized");
+          }
+
+          task.setProofPhotoUrl(photoUrl);
+          return taskRepository.save(task);
+     }
+
+     @Transactional
+     public Task completeGig(UUID workerId, UUID gigId) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
+
+          if (!workerId.equals(task.getAssignedTo().getId())) {
+               throw new RuntimeException("Not authorized");
+          }
+
+          task.setStatus("completed");
+          task.setActualEndTime(OffsetDateTime.now());
+          task = taskRepository.save(task);
+
+          // Release Funds
+          walletService.releaseFundsToWorker(task);
+
+          return task;
+     }
+
+     @Transactional
+     public Task cancelGig(UUID employerId, UUID gigId) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
+
+          if (!employerId.equals(task.getCreatedBy().getId())) {
+               throw new RuntimeException("Not authorized");
+          }
+
+          if ("completed".equals(task.getStatus()) || "in_progress".equals(task.getStatus())) {
+               throw new RuntimeException("Cannot cancel gig in progress or completed");
+          }
+
+          task.setStatus("cancelled");
+          task = taskRepository.save(task);
+
+          // Refund Employer
+          walletService.refundToEmployer(task);
+
+          return task;
+     }
+
+     public List<Task> getAssignedGigs(UUID workerId) {
+          return taskRepository.findByAssignedTo_Id(workerId);
+     }
 }

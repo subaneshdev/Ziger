@@ -109,6 +109,10 @@ class UserProfile {
       'selfie_url': selfieUrl,
       'current_lat': currentLat,
       'current_lng': currentLng,
+      'active_orders': activeOrders,
+      'completed_orders': completedOrders,
+      'rating': rating,
+      'response_rate': responseRate,
     };
   }
 }
