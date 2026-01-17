@@ -40,7 +40,7 @@ public class WalletService {
     public void deposit(UUID userId, BigDecimal amount) {
         Profile profile = profileRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
+        
         profile.setWalletBalance(profile.getWalletBalance().add(amount));
         profileRepository.save(profile);
 
@@ -52,15 +52,14 @@ public class WalletService {
         Profile employer = profileRepository.findById(employerId)
                 .orElseThrow(() -> new RuntimeException("Employer not found"));
 
-        // if (employer.getWalletBalance().compareTo(task.getPayout()) < 0) {
-        // throw new RuntimeException("Insufficient wallet balance");
-        // }
+        if (employer.getWalletBalance().compareTo(task.getPayout()) < 0) {
+            throw new RuntimeException("Insufficient wallet balance");
+        }
 
         // Deduct from Wallet
         employer.setWalletBalance(employer.getWalletBalance().subtract(task.getPayout()));
         profileRepository.save(employer);
-        createTransaction(employer, task.getPayout(), "DEBIT", "Escrow Lock for Task: " + task.getTitle(),
-                task.getId());
+        createTransaction(employer, task.getPayout(), "DEBIT", "Escrow Lock for Task: " + task.getTitle(), task.getId());
 
         // Create Escrow Record
         EscrowTransaction escrow = new EscrowTransaction();
@@ -81,8 +80,7 @@ public class WalletService {
         }
 
         Profile worker = task.getAssignedTo();
-        if (worker == null)
-            throw new RuntimeException("No worker assigned");
+        if (worker == null) throw new RuntimeException("No worker assigned");
 
         // Credit Worker
         worker.setWalletBalance(worker.getWalletBalance().add(escrow.getAmount()));

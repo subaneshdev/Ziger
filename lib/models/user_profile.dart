@@ -60,7 +60,7 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'],
+      id: (json['id'] ?? json['user_id'] ?? '').toString(),
       role: json['role'], 
       kycStatus: json['kyc_status'] ?? 'pending',
       walletBalance: (json['wallet_balance'] ?? 0).toDouble(),
@@ -109,10 +109,6 @@ class UserProfile {
       'selfie_url': selfieUrl,
       'current_lat': currentLat,
       'current_lng': currentLng,
-      'active_orders': activeOrders,
-      'completed_orders': completedOrders,
-      'rating': rating,
-      'response_rate': responseRate,
     };
   }
 }

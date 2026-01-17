@@ -25,12 +25,12 @@ class ChatMessage {
     final senderId = sender['id'] as String? ?? '';
     
     return ChatMessage(
-      id: json['id'] as String,
-      taskId: json['taskId'] as String? ?? '', // Maybe just UUID string
+      id: json['id']?.toString() ?? '',
+      taskId: (json['taskId'] ?? json['task_id'])?.toString() ?? '',
       senderId: senderId,
-      senderName: sender['fullName'] as String? ?? 'Unknown',
-      content: json['content'] as String,
-      createdAt: json['createdAt'] as String,
+      senderName: (sender['fullName'] ?? sender['full_name'])?.toString() ?? 'Unknown',
+      content: json['content']?.toString() ?? '',
+      createdAt: (json['createdAt'] ?? json['created_at'])?.toString() ?? '',
       isMine: senderId == myUserId,
     );
   }

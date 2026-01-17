@@ -4,7 +4,6 @@ import '../../models/task_application_model.dart';
 abstract class TaskRepository {
   Future<List<Task>> fetchTasks();
   Future<List<Task>> fetchTasksByEmployer(String employerId);
-  Future<List<Task>> fetchAssignedTasks(); // New Method
   Future<void> createTask(Task task);
   
   // Lifecycle Methods
@@ -21,6 +20,5 @@ abstract class TaskRepository {
   Future<List<Task>> getRecommendations(String userId);
 
   Future<List<TaskApplication>> getApplications(String taskId);
-  
-  Future<TaskApplication?> getMyApplication(String taskId);
+  Future<List<Task>> fetchTasksByWorker(String workerId);
 }

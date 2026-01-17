@@ -6,7 +6,7 @@ class ApiService {
   // Use http://10.0.2.2:8080/api for Android Emulator
   // Use http://localhost:8080/api for iOS Simulator
   // static const String baseUrl = 'http://10.0.2.2:8080/api'; 
-  static const String baseUrl = 'http://localhost:8080/api'; 
+  static const String baseUrl = 'http://localhost:8080/api';
 
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -60,7 +60,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl$endpoint'),
       headers: await _headers(),
-    );
+    ).timeout(const Duration(seconds: 30));
     return _handleResponse(response);
   }
 
@@ -72,7 +72,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: headers,
       body: body,
-    );
+    ).timeout(const Duration(seconds: 10));
     return _handleResponse(response);
   }
   
@@ -101,10 +101,8 @@ class ApiService {
       } catch (e) {
         return response.body;
       }
-    } else {
-      // Handle all other error codes (400, 401, 403, 500 etc)
-      print('DEBUG: API Error: ${response.statusCode} - ${response.body}');
-      throw Exception('API Error ${response.statusCode}: ${response.body}');
+    } else if (response.statusCode == 404) {
+      throw Exception('Endpoint Not Found (404). Ensure Backend is running and URL is correct. ${response.body}');
     }
   }
 }

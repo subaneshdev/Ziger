@@ -35,19 +35,18 @@ class ApiKycRepository implements KycRepository {
     final userId = await _api.getUserId();
     if (userId == null) throw Exception("User not logged in (Backend ID missing)");
 
-    String? idFrontUrl;
-    String? idBackUrl;
-    String? selfieUrl;
+    // Parallel Uploads to speed up
+    final idFrontFuture = idFront != null ? _supabase.uploadKycDocument(userId, idFront.path, 'id_front') : Future.value(null);
+    final idBackFuture = idBack != null ? _supabase.uploadKycDocument(userId, idBack.path, 'id_back') : Future.value(null);
+    final selfieFuture = selfie != null ? _supabase.uploadKycDocument(userId, selfie.path, 'selfie') : Future.value(null);
+    final profileFuture = profileImage != null ? _supabase.uploadKycDocument(userId, profileImage.path, 'profile_photo') : Future.value(null);
 
-    if (idFront != null) {
-      idFrontUrl = await _supabase.uploadKycDocument(userId, idFront.path, 'id_front');
-    }
-    if (idBack != null) {
-      idBackUrl = await _supabase.uploadKycDocument(userId, idBack.path, 'id_back');
-    }
-    if (selfie != null) {
-      selfieUrl = await _supabase.uploadKycDocument(userId, selfie.path, 'selfie');
-    }
+    final results = await Future.wait([idFrontFuture, idBackFuture, selfieFuture, profileFuture]);
+    
+    final idFrontUrl = results[0];
+    final idBackUrl = results[1];
+    final selfieUrl = results[2];
+    final String? profilePhotoUrl = results[3];
     
     // 2. Construct JSON for Backend
     // 2. Construct JSON for Backend
@@ -67,7 +66,7 @@ class ApiKycRepository implements KycRepository {
       'idCardFrontUrl': idFrontUrl,
       'idCardBackUrl': idBackUrl,
       'selfieUrl': selfieUrl,
-      'profilePhotoUrl': profileImage != null ? await _supabase.uploadKycDocument(userId, profileImage.path, 'profile_photo') : null,
+      'profilePhotoUrl': profilePhotoUrl,
 
       // Bank (Worker)
       'bankAccountName': data['bank_account_name'],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
@@ -37,7 +36,7 @@ import 'data/repositories/chat_repository.dart';
 import 'features/chat/chat_screen.dart';
 import 'data/repositories/notification_repository.dart';
 import 'data/repositories/review_repository.dart';
-import 'features/notifications/notification_screen.dart';
+import 'features/shared/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -111,8 +110,8 @@ class _ZiggersAppState extends State<ZiggersApp> {
           return '/role-selection';
         }
 
-        // 3. Role Selected -> Check KYC
-        if (role != 'admin' && !authProvider.isKycApproved) {
+        // 3. Role Selected -> Check KYC (Allow Pending to proceed)
+        if (role != 'admin' && !authProvider.isKycApproved && authProvider.userProfile?.kycStatus != 'pending') {
              // Worker
              if (role == 'worker') {
                 if (state.uri.toString() == '/worker-kyc') return null;
@@ -237,27 +236,20 @@ class _ZiggersAppState extends State<ZiggersApp> {
         ),
         GoRoute(
           path: '/notifications',
-          builder: (context, state) => const NotificationScreen(),
+          builder: (context, state) => const NotificationsScreen(),
         ),
         GoRoute(
           path: '/worker/ongoing-gig',
           builder: (context, state) {
-             if (state.extra is Task) {
-               return OngoingGigScreen(task: state.extra as Task);
-             }
-             // Fallback/Mock for dev
-             return OngoingGigScreen(task: Task(
-               id: 'mock-task-id',
-               employerId: 'mock-employer-id',
-               title: 'Retail Store Assistant',
-               companyName: 'Zara Pvt Ltd',
-               locationName: '123 Fashion Street',
-               location: const LatLng(37.7749, -122.4194),
-               payout: 120.0,
-               distance: '5 km',
-               time: '4h',
-               status: 'in_progress',
-             ));
+             // For now, pass mock data or retrieve from state/extra
+             // Ideally this comes from state management or arguments
+             final mockData = {
+               'title': 'Retail Store Assistant',
+               'employer': 'Zara Pvt Ltd',
+               'address': '123 Fashion Street',
+               'location': {'lat': 37.7749, 'lng': -122.4194},
+             };
+             return OngoingGigScreen(gigData: mockData);
           },
         ),
       ],

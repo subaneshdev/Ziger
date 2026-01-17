@@ -36,9 +36,14 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to send OTP'),
+            content: const Text('Failed to connect to server. Ensure your backend is running.'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: _handleGetCode,
+            ),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );

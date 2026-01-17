@@ -10,9 +10,7 @@ import java.util.UUID;
 
 @Repository
 public interface TaskApplicationRepository extends JpaRepository<TaskApplication, UUID> {
-    List<TaskApplication> findByTask_Id(UUID taskId);
-
-    List<TaskApplication> findByWorker_Id(UUID workerId);
-
-    Optional<TaskApplication> findByTask_IdAndWorker_Id(UUID taskId, UUID workerId);
+    List<TaskApplication> findByTaskId(UUID taskId);
+    List<TaskApplication> findByWorkerId(UUID workerId);
+    Optional<TaskApplication> findByTaskIdAndWorkerId(UUID taskId, UUID workerId);
 }

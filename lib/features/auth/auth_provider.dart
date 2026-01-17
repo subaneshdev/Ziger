@@ -20,7 +20,7 @@ class AuthProvider extends ChangeNotifier {
   
   // Shortcuts
   String? get role => _userProfile?.role;
-  bool get isKycApproved => _userProfile?.kycStatus == 'approved' || _userProfile?.kycStatus == 'pending';
+  bool get isKycApproved => _userProfile?.kycStatus == 'approved';
 
   // Repository
   late final KycRepository _kycRepository;
@@ -138,8 +138,10 @@ class AuthProvider extends ChangeNotifier {
     if (_userProfile == null) return false;
     _isLoading = true;
     notifyListeners();
+    debugPrint('AuthProvider: Starting KYC Submit...');
 
     try {
+      debugPrint('AuthProvider: Calling Repository...');
       final result = await _kycRepository.submitKyc(
         data: data,
         idFront: idFront,
@@ -149,16 +151,19 @@ class AuthProvider extends ChangeNotifier {
       );
       
       if (result != null) {
+        debugPrint('AuthProvider: KYC Success. Updating Profile.');
         _userProfile = UserProfile.fromJson(result);
         notifyListeners();
         return true;
       }
+      debugPrint('AuthProvider: KYC Failed (Result null).');
       return false;
       
     } catch (e) {
-      debugPrint('KYC Submit Error: $e');
+      debugPrint('AuthProvider: KYC Submit Error: $e');
       return false;
     } finally {
+      debugPrint('AuthProvider: Stopping Loading.');
       _isLoading = false;
       notifyListeners();
     }

@@ -142,21 +142,21 @@ class _KycScreenState extends State<KycScreen> {
     final hasSubmittedData = user?.idCardNumber != null && user!.idCardNumber!.isNotEmpty;
 
     // Constraint: One Profile, One KYC.
-    // If user has already submitted (determined by having ID number), prevent form access and redirect to Home.
-    if (user != null && user.idCardNumber != null && user.idCardNumber!.isNotEmpty) {
-       // If approved or pending, go to home
-       if (kycStatus == 'pending' || kycStatus == 'approved') {
-          // Schedule redirect to prevent build loop
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-             if (mounted) context.go('/worker/home');
-          });
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-       }
-    }
+    // If user has already submitted (determined by having ID number), prevent form    // Constraint: One Profile, One KYC.
+    // if (user != null && user.idCardNumber != null && user.idCardNumber!.isNotEmpty) {
+    //    // If approved or pending, go to home
+    //    if (kycStatus == 'pending' || kycStatus == 'approved') {
+    //       // Schedule redirect to prevent build loop
+    //       WidgetsBinding.instance.addPostFrameCallback((_) {
+    //          if (mounted) context.go('/worker/home');
+    //       });
+    //       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    //    }
+    // }
 
-    if (authProvider.userProfile?.kycStatus == 'pending') {
-      return _buildPendingView();
-    }
+    // if (authProvider.userProfile?.kycStatus == 'pending') {
+    //   return _buildPendingView();
+    // }
 
     return Scaffold(
       appBar: AppBar(
