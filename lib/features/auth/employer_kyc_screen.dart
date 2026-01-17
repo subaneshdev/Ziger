@@ -142,14 +142,24 @@ class _EmployerKycScreenState extends State<EmployerKycScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Employer Verification'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+             // Go back to role selection handling
+             context.go('/role-selection');
+          },
+        ),
+        title: const Text('Employer Verification', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             onPressed: () {
               context.read<AuthProvider>().logout();
               context.go('/login');
             },
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.red), // Red for visibility/action
           ),
         ],
       ),

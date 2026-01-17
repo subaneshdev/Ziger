@@ -124,6 +124,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> reloadProfile() async {
+    if (_userProfile == null) return;
+    await _fetchProfile(_userProfile!.id);
+    notifyListeners();
+  }
+
   Future<void> setRole(String role) async {
     if (_userProfile == null) return;
     

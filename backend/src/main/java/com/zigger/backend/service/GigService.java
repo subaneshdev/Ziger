@@ -73,6 +73,10 @@ public class GigService {
           return taskRepository.findNearbyTasks(lat, lng, radiusKm);
      }
 
+     public List<Task> getAllOpenGigs() {
+          return taskRepository.findByStatus("open");
+     }
+
      public List<Task> getGigsByEmployer(UUID employerId) {
           return taskRepository.findByCreatedBy_Id(employerId);
      }
@@ -156,6 +160,13 @@ public class GigService {
                     workerId,
                     "You're Hired!",
                     "Congratulations! You have been hired for the gig: " + task.getTitle());
+
+          // Send Notification to Employer
+          notificationService.sendNotification(
+                    employerId,
+                    "Worker Assigned Successfully",
+                    "You have assigned " + worker.getFullName() + " for " + task.getTitle()
+                              + ". You can now chat with them.");
 
           return savedTask;
      }

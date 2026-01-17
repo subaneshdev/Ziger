@@ -58,7 +58,7 @@ const server = http.createServer((req, res) => {
                         id: crypto.randomUUID(), // Generate UUID for the id field
                         mobile: mobile,
                         role: 'worker', // Default role, can be changed during role selection
-                        kyc_status: 'pending',
+                        kyc_status: 'approved',
                         wallet_balance: 0.0,
                         trust_score: 100
                     };
@@ -111,6 +111,14 @@ const server = http.createServer((req, res) => {
                 const uid = req.headers['x-user-id'];
                 const tasks = await supabaseFetch(`/tasks?created_by=eq.${uid}&select=*`);
                 return sendJSON(tasks || []);
+            }
+
+            // --- PROFILES & KYC ---
+            const applicationsMatch = url.match(/\/api\/gigs\/([a-f\d-]+)\/applications/);
+            if (applicationsMatch && method === 'GET') {
+                const taskId = applicationsMatch[1];
+                const apps = await supabaseFetch(`/task_applications?task_id=eq.${taskId}&select=*,worker:profiles(*)`);
+                return sendJSON(apps || []);
             }
 
             // --- PROFILES & KYC ---

@@ -27,12 +27,12 @@ class TaskApplication {
     return TaskApplication(
       id: json['id'] ?? '',
       task: json['task'] != null ? Task.fromJson(json['task']) : null,
-      taskId: json['task'] != null ? json['task']['id'] : (json['taskId'] ?? ''),
+      taskId: json['task'] != null ? json['task']['id'] : (json['taskId'] ?? json['task_id'] ?? ''),
       worker: UserProfile.fromJson(json['worker']),
-      bidAmount: json['bidAmount'] != null ? (json['bidAmount'] as num).toDouble() : null,
-      pitchMessage: json['pitchMessage'],
+      bidAmount: json['bidAmount'] != null ? (json['bidAmount'] as num).toDouble() : (json['bid_amount'] as num?)?.toDouble(),
+      pitchMessage: json['pitchMessage'] ?? json['pitch_message'],
       status: json['status'] ?? 'pending',
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : (json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now()),
     );
   }
 }

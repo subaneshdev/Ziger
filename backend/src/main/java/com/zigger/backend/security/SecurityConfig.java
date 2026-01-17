@@ -26,6 +26,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll() // Public access
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // Admin only
                         .requestMatchers(HttpMethod.GET, "/api/gigs/feed").permitAll() // Public feed
+                        .requestMatchers(HttpMethod.GET, "/api/gigs/all").permitAll() // Public feed (Development)
                         .requestMatchers("/api/gigs/**").authenticated() // Require login for gigs
                         // For MVP Dev: Allow direct access to Swagger/OpenAPI if added later
                         .anyRequest().authenticated() // Everything else requires login

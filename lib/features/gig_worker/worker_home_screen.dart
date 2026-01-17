@@ -50,6 +50,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final position = await Geolocator.getCurrentPosition();
     setState(() {
       _initialPosition = LatLng(position.latitude, position.longitude);
+      _loadTasks(); // Reload tasks with new location
     });
     
     // Move map if controller ready
@@ -60,8 +61,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     setState(() => _isLoading = true);
     
     try {
-      // 1. Fetch available gigs
-      final tasks = await context.read<TaskRepository>().fetchTasks();
+      // 0. Update Position first (so we get fresh location on refresh)
+      await _determinePosition();
+
+      // 1. Fetch available gigs with current location
+      final tasks = await context.read<TaskRepository>().fetchTasks(
+        lat: _initialPosition.latitude,
+        lng: _initialPosition.longitude,
+      );
       
       // 2. Fetch assigned gigs
       final assignedTasks = await context.read<TaskRepository>().fetchAssignedTasks();

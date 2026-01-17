@@ -4,12 +4,31 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../features/auth/auth_provider.dart';
 
-class WorkerProfileScreen extends StatelessWidget {
+class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});
 
   @override
+  State<WorkerProfileScreen> createState() => _WorkerProfileScreenState();
+}
+
+class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().reloadProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().userProfile;
+    // Watch AuthProvider for changes
+    final auth = context.watch<AuthProvider>();
+    final user = auth.userProfile;
+    
+    // DEBUG: Print user profile to console
+    print('DEBUG: WorkerProfileScreen User Dump: ${user?.toJson()}');
+
     // Determine image provider safely
     final ImageProvider? imageProvider = (user?.profilePhotoUrl != null && 
         user!.profilePhotoUrl!.isNotEmpty &&
@@ -37,7 +56,9 @@ class WorkerProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: auth.isLoading 
+        ? const Center(child: CircularProgressIndicator()) 
+        : SingleChildScrollView(
         child: Column(
           children: [
             const SizedBox(height: 60), // Top spacing
@@ -110,7 +131,9 @@ class WorkerProfileScreen extends StatelessWidget {
 
             // Name
             Text(
-              user?.fullName ?? 'No Name',
+              (user?.fullName?.isNotEmpty == true) 
+                  ? user!.fullName! 
+                  : (user?.role == 'employer' ? 'Business Owner' : 'Worker'),
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 32,
@@ -121,7 +144,8 @@ class WorkerProfileScreen extends StatelessWidget {
             
             const SizedBox(height: 8),
 
-            // Status
+            // Status (Only show for workers)
+            if (user?.role == 'worker')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -132,7 +156,7 @@ class WorkerProfileScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    user?.role == 'worker' ? 'Actively Looking' : 'Hiring',
+                    'Actively Looking',
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,

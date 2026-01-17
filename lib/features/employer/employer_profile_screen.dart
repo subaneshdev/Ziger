@@ -4,8 +4,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
 
-class EmployerProfileScreen extends StatelessWidget {
+class EmployerProfileScreen extends StatefulWidget {
   const EmployerProfileScreen({super.key});
+
+  @override
+  State<EmployerProfileScreen> createState() => _EmployerProfileScreenState();
+}
+
+class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().reloadProfile();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +33,9 @@ class EmployerProfileScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: SingleChildScrollView(
+      body: auth.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
@@ -44,7 +59,7 @@ class EmployerProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    user?.fullName ?? 'Employer Name',
+                    user?.fullName ?? 'Business Owner',
                     style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   Text(

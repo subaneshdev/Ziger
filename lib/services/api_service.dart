@@ -1,12 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Use http://10.0.2.2:8080/api for Android Emulator
   // Use http://localhost:8080/api for iOS Simulator
-  // static const String baseUrl = 'http://10.0.2.2:8080/api'; 
-  static const String baseUrl = 'http://127.0.0.1:8080/api';
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:8080/api';
+    }
+    return 'http://127.0.0.1:8080/api';
+  }
 
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;

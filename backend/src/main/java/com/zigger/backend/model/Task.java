@@ -85,6 +85,9 @@ public class Task {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @org.hibernate.annotations.Formula("(SELECT count(*) FROM task_applications ta WHERE ta.task_id = id)")
+    private Integer applicationCount;
+
     public Task() {
     }
 
@@ -292,5 +295,13 @@ public class Task {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getApplicationCount() {
+        return applicationCount;
+    }
+
+    public void setApplicationCount(Integer applicationCount) {
+        this.applicationCount = applicationCount;
     }
 }

@@ -177,6 +177,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDocThumb(BuildContext context, String url, String label) {
+    if (!url.startsWith('http')) return const SizedBox.shrink();
+    
     return GestureDetector(
       onTap: () {
         showDialog(context: context, builder: (_) => Dialog(child: Image.network(url)));

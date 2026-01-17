@@ -45,6 +45,11 @@ public class GigController {
         return ResponseEntity.ok(gigService.getNearbyGigs(lat, lng, radius));
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<List<Task>> getAllGigs() {
+        return ResponseEntity.ok(gigService.getAllOpenGigs());
+    }
+
     @GetMapping("/my-gigs")
     public ResponseEntity<List<Task>> getMyGigs(@RequestHeader("X-User-Id") UUID userId) {
         return ResponseEntity.ok(gigService.getGigsByEmployer(userId));

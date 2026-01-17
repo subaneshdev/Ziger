@@ -34,6 +34,7 @@ class Task {
   final List<String> inProgressPhotos;
   final String? assignedWorkerName;
   final String? assignedWorkerAvatar;
+  final int? applicationCount;
 
   Task({
     required this.id,
@@ -65,6 +66,7 @@ class Task {
     this.inProgressPhotos = const [],
     this.assignedWorkerName,
     this.assignedWorkerAvatar,
+    this.applicationCount,
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -108,6 +110,7 @@ class Task {
       liveLng: (json['live_lng'] as num?)?.toDouble(),
       lastUpdated: json['last_updated'] != null ? DateTime.tryParse(json['last_updated']) : null,
       inProgressPhotos: List<String>.from(json['in_progress_photos'] ?? []),
+      applicationCount: json['application_count'] ?? 0,
     );
   }
 
@@ -140,6 +143,7 @@ class Task {
       'live_lng': liveLng,
       'last_updated': lastUpdated?.toUtc().toIso8601String(),
       'in_progress_photos': inProgressPhotos,
+      'application_count': applicationCount,
     };
   }
 }

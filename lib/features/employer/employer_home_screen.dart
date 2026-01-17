@@ -7,8 +7,23 @@ import '../auth/auth_provider.dart';
 import '../../data/repositories/task_repository.dart';
 import '../../models/task_model.dart';
 
-class EmployerHomeScreen extends StatelessWidget {
+class EmployerHomeScreen extends StatefulWidget {
   const EmployerHomeScreen({super.key});
+
+  @override
+  State<EmployerHomeScreen> createState() => _EmployerHomeScreenState();
+}
+
+class _EmployerHomeScreenState extends State<EmployerHomeScreen> {
+  
+  @override
+  void initState() {
+    super.initState();
+    // Refresh profile to get latest name/business name
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().reloadProfile();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,14 +71,14 @@ class EmployerHomeScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Hello,',
+                            'Welcome back,',
                             style: GoogleFonts.outfit(
                               fontSize: 14,
                               color: Colors.grey,
                             ),
                           ),
                           Text(
-                            user?.fullName ?? 'Employer',
+                            user?.fullName ?? 'Business Owner',
                             style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

@@ -244,6 +244,7 @@ class _LiveGigTrackingScreenState extends State<LiveGigTrackingScreen> {
   }
 
   Widget _buildPhotoItem(String label, String url) {
+    bool isValidUrl = url.isNotEmpty && url.startsWith('http');
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 12),
@@ -252,7 +253,18 @@ class _LiveGigTrackingScreenState extends State<LiveGigTrackingScreen> {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(url, fit: BoxFit.cover),
+              child: isValidUrl 
+                  ? Image.network(
+                      url, 
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(color: Colors.grey.shade200, child: const Icon(Icons.broken_image, color: Colors.grey));
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                    ),
             ),
           ),
           const SizedBox(height: 4),

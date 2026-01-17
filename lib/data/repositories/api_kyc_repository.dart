@@ -52,8 +52,8 @@ class ApiKycRepository implements KycRepository {
     // 2. Construct JSON for Backend
     final kycRequest = {
       // Basic
-      'fullName': data['full_name'], 
-      'dob': data['date_of_birth'], // Updated key to match backend (check DTO if it's 'dob' or 'dateOfBirth'. DTO has 'LocalDate dob', JSON usually expects 'dob')
+      'full_name': data['full_name'], 
+      'dob': data['date_of_birth'], 
       'gender': data['gender'],
       'address': data['address'],
       'city': data['city'],
@@ -61,38 +61,38 @@ class ApiKycRepository implements KycRepository {
       'pincode': data['pincode'],
       
       // Identity
-      'idType': data['id_type'],
-      'idCardNumber': data['id_card_number'],
-      'idCardFrontUrl': idFrontUrl,
-      'idCardBackUrl': idBackUrl,
-      'selfieUrl': selfieUrl,
-      'profilePhotoUrl': profilePhotoUrl,
+      'id_type': data['id_type'],
+      'id_card_number': data['id_card_number'],
+      'id_card_front_url': idFrontUrl,
+      'id_card_back_url': idBackUrl,
+      'selfie_url': selfieUrl,
+      'profile_photo_url': profilePhotoUrl, // if passed
 
       // Bank (Worker)
-      'bankAccountName': data['bank_account_name'],
-      'bankAccountNumber': data['bank_account_number'],
-      'bankIfsc': data['bank_ifsc'],
-      'upiId': data['upi_id'],
+      'bank_account_name': data['bank_account_name'],
+      'bank_account_number': data['bank_account_number'],
+      'bank_ifsc': data['bank_ifsc'],
+      'upi_id': data['upi_id'],
 
       // Work Prefs (Worker)
-      'gigTypes': data['work_preferences']?['types'], // List<String>
-      'workRadius': data['work_preferences']?['radius_km'],
-      'willingToTravel': data['work_preferences']?['willing_to_travel'],
-      // 'availableTimeSlots': ... (not implemented in UI yet but good to have mapping ready if added)
+      'gig_types': data['work_preferences']?['types'], 
+      'work_radius': data['work_preferences']?['radius_km'],
+      'willing_to_travel': data['work_preferences']?['willing_to_travel'],
+      // 'available_time_slots': ... 
 
       // Business (Employer)
-      'employerType': data['employer_type'],
-      'businessName': data['business_name'],
-      'natureOfWork': data['nature_of_work'],
-      'businessAddress': data['business_address'],
+      'employer_type': data['employer_type'],
+      'business_name': data['business_name'],
+      'nature_of_work': data['nature_of_work'],
+      'business_address': data['business_address'],
       
       // Payment (Employer)
-      'paymentMethod': data['payment_method'],
-      'billingName': data['billing_name'],
-      'gstNumber': data['gst_number'],
-      'invoiceAddress': data['invoice_address'],
+      'payment_method': data['payment_method'],
+      'billing_name': data['billing_name'],
+      'gst_number': data['gst_number'],
+      'invoice_address': data['invoice_address'],
       
-      'isAgreedToTerms': data['is_agreed_to_terms'],
+      'is_agreed_to_terms': data['is_agreed_to_terms'],
     };
 
     // 3. Call Backend

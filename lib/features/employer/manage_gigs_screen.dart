@@ -122,38 +122,59 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
                             const SizedBox(height: 8),
                             Text('Location: ${task.locationName}', style: GoogleFonts.outfit(color: Colors.grey, fontSize: 12)),
                             Text('Pay: \$${task.payout} (${task.paymentType})', style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              // Edit Logic later
-                            },
-                             child: const Text('Edit'),
+                            // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                             // Edit Logic
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           ),
+                          child: const Text('Edit', style: TextStyle(color: Colors.black)),
                         ),
-                        const SizedBox(width: 12),
-                         Expanded(
-                           child: task.status == 'in_progress' 
-                           ? ElevatedButton.icon(
-                               onPressed: () {
-                                 context.push('/live-gig-tracking', extra: task);
-                               },
-                               icon: const Icon(Icons.location_on, size: 16, color: Colors.white),
-                               label: const Text('Track Live', style: TextStyle(color: Colors.white)),
-                               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                             )
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: task.status == 'in_progress'
+                        ? ElevatedButton(
+                          onPressed: () {
+                             // Navigate to Live Tracking
+                             context.push('/live-gig-tracking', extra: task);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          ),
+                          child: const Text('Track Live', style: TextStyle(color: Colors.white)),
+                        )
+                        : (task.status == 'assigned')
+                           ? ElevatedButton(
+                              onPressed: null, // Disabled
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade300,
+                                disabledBackgroundColor: Colors.grey.shade300,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              ),
+                              child: const Text('Waiting for Start', style: TextStyle(color: Colors.black54)),
+                           )
                            : ElevatedButton(
-                               onPressed: () {
-                                 _showApplicationsDialog(context, task.id);
-                               },
-                               style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-                               child: const Text('Applications (1)', style: TextStyle(color: Colors.white)),
-                             ),
-                         ),
-                      ],
-                    )
+                              onPressed: () => _showApplicationsDialog(context, task.id),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              ),
+                              child: Text('Applications (${task.applicationCount ?? 0})', style: const TextStyle(color: Colors.white)),
+                            ),
+                      ),
+                    ],
+                  ),
                   ],
                 ),
               );
@@ -163,67 +184,163 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
     );
   }
   void _showApplicationsDialog(BuildContext context, String taskId) {
+    print('DEBUG: Opening Applications Dialog for $taskId');
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) => AlertDialog(
-        title: const Text('Applications'),
+        title: const Text('Applications', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: SizedBox(
           width: double.maxFinite,
-          child: FutureBuilder<List<dynamic>>( // Using dynamic to avoid circular dep if types not ready, but better use TaskApplication
+          height: 300,
+          child: FutureBuilder<List<dynamic>>(
             future: context.read<TaskRepository>().getApplications(taskId),
             builder: (context, snapshot) {
+              print('DEBUG: Snapshot: ${snapshot.connectionState}, Error: ${snapshot.error}, DataLen: ${snapshot.data?.length}');
+              
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+                return const Center(child: CircularProgressIndicator());
               }
+              
               if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
+                return Center(
+                  child: Text('Error: ${snapshot.error}', 
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                );
               }
+              
               final apps = snapshot.data ?? [];
+              
               if (apps.isEmpty) {
-                return const Text('No applications yet.');
+                return const Center(
+                  child: Text('No applications found.', style: TextStyle(color: Colors.black, fontSize: 16)),
+                );
               }
-              return ListView.builder(
-                shrinkWrap: true,
-                itemCount: apps.length,
-                itemBuilder: (context, index) {
-                  final app = apps[index]; 
-                  // Assuming app is TaskApplication, but allowing for dynamic if needed
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: (app.worker.profilePictureUrl != null && 
-                          app.worker.profilePictureUrl!.isNotEmpty &&
-                          app.worker.profilePictureUrl!.startsWith('http'))
-                          ? NetworkImage(app.worker.profilePictureUrl!)
-                          : null,
-                      backgroundColor: Colors.grey.shade200,
-                      child: (app.worker.profilePictureUrl == null || 
-                              app.worker.profilePictureUrl!.isEmpty ||
-                              !app.worker.profilePictureUrl!.startsWith('http')) 
-                          ? const Icon(Icons.person) 
-                          : null,
-                    ),
-                    title: Text(app.worker.fullName),
-                    subtitle: Text(app.pitchMessage ?? 'No message'),
-                    trailing: ElevatedButton(
-                      onPressed: () async {
-                        try {
-                           await context.read<TaskRepository>().assignWorker(taskId, app.worker.id);
-                           if (context.mounted) {
-                             Navigator.pop(context);
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Worker Assigned!')));
-                             _loadTasks(); // Refresh list to show "Assigned/In Progress" status or button change
-                           }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                          }
+
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: apps.map((app) {
+                     var workerName = 'Unknown';
+                     String? photoUrl;
+                     String pitch = 'No message';
+                     
+                     try {
+                        // Safe extraction for both Map and Object
+                        dynamic worker = (app is Map) ? app['worker'] : (app as dynamic).worker;
+                        if (worker is Map) {
+                          workerName = worker['full_name'] ?? 'Unknown';
+                          photoUrl = worker['profile_photo_url'];
+                        } else {
+                          workerName = worker?.fullName ?? 'Unknown';
+                          photoUrl = worker?.profilePhotoUrl;
                         }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-                      child: const Text('Assign'),
-                    ),
-                  );
-                },
+                        
+                        pitch = (app is Map) ? app['pitch_message'] : (app as dynamic).pitchMessage;
+                        pitch ??= 'No message';
+                     } catch (e) {
+                       print('DEBUG: Parse Error: $e');
+                     }
+
+                     return Card(
+                       color: Colors.white,
+                       elevation: 2,
+                       margin: const EdgeInsets.only(bottom: 12),
+                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                       child: Padding(
+                         padding: const EdgeInsets.all(12),
+                         child: Row(
+                           children: [
+                             CircleAvatar(
+                               radius: 24,
+                               backgroundImage: (photoUrl != null && photoUrl.startsWith('http')) 
+                                 ? NetworkImage(photoUrl) 
+                                 : null,
+                               backgroundColor: Colors.grey.shade200,
+                               child: (photoUrl == null || !photoUrl.startsWith('http')) 
+                                 ? const Icon(Icons.person, color: Colors.grey) 
+                                 : null,
+                             ),
+                             const SizedBox(width: 12),
+                             Expanded(
+                               child: Column(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+                                   Text(
+                                     workerName,
+                                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                   ),
+                                   const SizedBox(height: 4),
+                                   Text(
+                                     pitch,
+                                     maxLines: 2, 
+                                     overflow: TextOverflow.ellipsis,
+                                     style: const TextStyle(color: Colors.black87, fontSize: 13),
+                                   ),
+                                 ],
+                               ),
+                             ),
+                             ElevatedButton(
+                               onPressed: () async {
+                                 try {
+                                   String workerId;
+                                    try {
+                                       // Extract Worker ID robustly
+                                      dynamic worker = (app is Map) ? app['worker'] : (app as dynamic).worker;
+                                      if (worker is Map) {
+                                        workerId = worker['id'] ?? worker['user_id'];
+                                      } else {
+                                         workerId = worker.id;
+                                      }
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error finding worker ID: $e')),
+                                      );
+                                      return;
+                                    }
+                                    
+                                   print('DEBUG: Assigning Worker $workerId to Task $taskId');
+                                   
+                                   // Call Repository
+                                   await context.read<TaskRepository>().assignWorker(taskId, workerId);
+                                   
+                                   if (context.mounted) {
+                                      Navigator.pop(context); // Close dialog
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Assigned $workerName successfully!'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      _loadTasks(); // Refresh list to update UI
+                                   }
+                                 } catch (e) {
+                                   if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Assign Failed: $e'), backgroundColor: Colors.red),
+                                      );
+                                   }
+                                 }
+                               },
+                               style: ElevatedButton.styleFrom(
+                                 backgroundColor: Colors.black,
+                                 foregroundColor: Colors.white,
+                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                 minimumSize: const Size(60, 36),
+                               ),
+                               child: const Text('Assign', style: TextStyle(fontSize: 12)),
+                             ),
+                           ],
+                         ),
+                       ),
+                     );
+                  }).toList(),
+                ),
               );
             },
           ),
@@ -231,7 +348,7 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('Close', style: TextStyle(color: Colors.black)),
           ),
         ],
       ),

@@ -7,12 +7,9 @@ class ApiTaskRepository implements TaskRepository {
   final ApiService _api = ApiService();
 
   @override
-  Future<List<Task>> fetchTasks() async {
-    // Current geolocation logic can be moved here or passed as params
-    // For MVP, hardcode or fetch near default location
-    // final response = await _api.get('/gigs/feed?lat=37.7749&lng=-122.4194&radius=50');
-    // Using simple fetch all if admin endpoint existed, but feed is safe default
-    final response = await _api.get('/gigs/feed?lat=37.7749&lng=-122.4194&radius=100000');
+  Future<List<Task>> fetchTasks({double? lat, double? lng}) async {
+    // DEVELOPMENT MODE: Fetch ALL gigs, ignoring location
+    final response = await _api.get('/gigs/all');
     
     if (response == null) return [];
     
