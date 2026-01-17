@@ -21,6 +21,8 @@ class AuthProvider extends ChangeNotifier {
   // Shortcuts
   String? get role => _userProfile?.role;
   bool get isKycApproved => _userProfile?.kycStatus == 'approved';
+  bool get isKycPending => _userProfile?.kycStatus == 'pending';
+  String? get kycStatus => _userProfile?.kycStatus;
 
   // Repository
   late final KycRepository _kycRepository;

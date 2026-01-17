@@ -1,9 +1,7 @@
 package com.zigger.backend.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -12,9 +10,6 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "task_applications")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class TaskApplication {
 
     @Id
@@ -41,4 +36,74 @@ public class TaskApplication {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    public TaskApplication() {
+    }
+
+    public TaskApplication(UUID id, Task task, Profile worker, BigDecimal bidAmount, String pitchMessage, String status,
+            OffsetDateTime createdAt) {
+        this.id = id;
+        this.task = task;
+        this.worker = worker;
+        this.bidAmount = bidAmount;
+        this.pitchMessage = pitchMessage;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public Task getTask() {
+        return task;
+    }
+
+    public void setTask(Task task) {
+        this.task = task;
+    }
+
+    public Profile getWorker() {
+        return worker;
+    }
+
+    public void setWorker(Profile worker) {
+        this.worker = worker;
+    }
+
+    public BigDecimal getBidAmount() {
+        return bidAmount;
+    }
+
+    public void setBidAmount(BigDecimal bidAmount) {
+        this.bidAmount = bidAmount;
+    }
+
+    public String getPitchMessage() {
+        return pitchMessage;
+    }
+
+    public void setPitchMessage(String pitchMessage) {
+        this.pitchMessage = pitchMessage;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

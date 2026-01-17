@@ -111,7 +111,11 @@ class _ZiggersAppState extends State<ZiggersApp> {
         }
 
         // 3. Role Selected -> Check KYC
-        if (role != 'admin' && !authProvider.isKycApproved) {
+        // Allow BOTH approved and pending statuses to access the app for now
+        // so users aren't blocked after submission.
+        final allowAccess = authProvider.isKycApproved || authProvider.isKycPending;
+        
+        if (role != 'admin' && !allowAccess) {
              // Worker
              if (role == 'worker') {
                 if (state.uri.toString() == '/worker-kyc') return null;
@@ -241,15 +245,8 @@ class _ZiggersAppState extends State<ZiggersApp> {
         GoRoute(
           path: '/worker/ongoing-gig',
           builder: (context, state) {
-             // For now, pass mock data or retrieve from state/extra
-             // Ideally this comes from state management or arguments
-             final mockData = {
-               'title': 'Retail Store Assistant',
-               'employer': 'Zara Pvt Ltd',
-               'address': '123 Fashion Street',
-               'location': {'lat': 37.7749, 'lng': -122.4194},
-             };
-             return OngoingGigScreen(gigData: mockData);
+             final task = state.extra as Task;
+             return OngoingGigScreen(task: task);
           },
         ),
       ],

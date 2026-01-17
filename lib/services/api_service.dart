@@ -6,7 +6,7 @@ class ApiService {
   // Use http://10.0.2.2:8080/api for Android Emulator
   // Use http://localhost:8080/api for iOS Simulator
   // static const String baseUrl = 'http://10.0.2.2:8080/api'; 
-  static const String baseUrl = 'http://localhost:8080/api';
+  static const String baseUrl = 'http://127.0.0.1:8080/api';
 
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -101,8 +101,23 @@ class ApiService {
       } catch (e) {
         return response.body;
       }
-    } else if (response.statusCode == 404) {
-      throw Exception('Endpoint Not Found (404). Ensure Backend is running and URL is correct. ${response.body}');
+    } else {
+      // Try to parse structured error
+      String errorMessage = 'API Error: ${response.statusCode}';
+      try {
+        final errorBody = jsonDecode(response.body);
+        if (errorBody is Map && errorBody.containsKey('message')) {
+            errorMessage = errorBody['message'];
+        } else if (errorBody is Map && errorBody.containsKey('error')) {
+            errorMessage = errorBody['error']; // Fallback to error code
+        }
+      } catch (_) {
+         // Fallback to raw body if not JSON
+         if (response.body.isNotEmpty) {
+             errorMessage = response.body;
+         }
+      }
+      throw Exception(errorMessage);
     }
   }
 }

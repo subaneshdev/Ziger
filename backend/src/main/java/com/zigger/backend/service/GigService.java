@@ -15,6 +15,8 @@ import com.zigger.backend.repository.TaskApplicationRepository;
 import java.util.List;
 import java.time.OffsetDateTime;
 import com.zigger.backend.service.WalletService;
+import com.zigger.backend.exception.GigException;
+import org.springframework.http.HttpStatus;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -38,11 +40,12 @@ public class GigService {
                     .orElseThrow(() -> new RuntimeException("Employer not found"));
 
           if (!"employer".equalsIgnoreCase(employer.getRole()) && !"admin".equalsIgnoreCase(employer.getRole())) {
-               throw new RuntimeException("Only employers can post gigs");
+               throw new GigException("Only employers can post gigs", "NOT_AUTHORIZED", HttpStatus.FORBIDDEN);
           }
 
           // if (!"approved".equals(employer.getKycStatus())) {
-          // throw new RuntimeException("KYC verification required to post gigs");
+          // throw new GigException("KYC verification required to post gigs",
+          // "NOT_VERIFIED", HttpStatus.FORBIDDEN);
           // }
 
           Task task = new Task();
@@ -82,19 +85,20 @@ public class GigService {
                     .orElseThrow(() -> new RuntimeException("Gig not found"));
 
           if (!"worker".equalsIgnoreCase(worker.getRole())) {
-               throw new RuntimeException("Only workers can apply for gigs");
+               throw new GigException("Only workers can apply for gigs", "NOT_AUTHORIZED", HttpStatus.FORBIDDEN);
           }
 
           // if (!"approved".equals(worker.getKycStatus())) {
-          // throw new RuntimeException("KYC verification required to apply for gigs");
+          // throw new GigException("KYC verification required to apply for gigs",
+          // "NOT_VERIFIED", HttpStatus.FORBIDDEN);
           // }
 
           if (!"open".equals(task.getStatus())) {
-               throw new RuntimeException("Gig is not open for applications");
+               throw new GigException("Gig is not open for applications", "GIG_CLOSED", HttpStatus.BAD_REQUEST);
           }
 
-          if (taskApplicationRepository.findByTask_IdAndWorker_Id(gigId, workerId).isPresent()) {
-               throw new RuntimeException("Already applied for this gig");
+          if (taskApplicationRepository.findByTaskIdAndWorkerId(gigId, workerId).isPresent()) {
+               throw new GigException("Already applied for this gig", "ALREADY_APPLIED", HttpStatus.CONFLICT);
           }
 
           TaskApplication application = new TaskApplication();
@@ -109,7 +113,7 @@ public class GigService {
      }
 
      public java.util.Optional<TaskApplication> getMyApplication(UUID gigId, UUID workerId) {
-          return taskApplicationRepository.findByTask_IdAndWorker_Id(gigId, workerId);
+          return taskApplicationRepository.findByTaskIdAndWorkerId(gigId, workerId);
      }
 
      public List<TaskApplication> getApplicationsForGig(UUID gigId, UUID employerId) {
@@ -120,7 +124,7 @@ public class GigService {
                throw new RuntimeException("Not authorized to view applications for this gig");
           }
 
-          return taskApplicationRepository.findByTask_Id(gigId);
+          return taskApplicationRepository.findByTaskId(gigId);
      }
 
      @Autowired
@@ -132,11 +136,11 @@ public class GigService {
                     .orElseThrow(() -> new RuntimeException("Gig not found"));
 
           if (!employerId.equals(task.getCreatedBy().getId())) {
-               throw new RuntimeException("Not authorized");
+               throw new GigException("Not authorized", "NOT_AUTHORIZED", HttpStatus.FORBIDDEN);
           }
 
           if (!"open".equals(task.getStatus())) {
-               throw new RuntimeException("Gig is not open");
+               throw new GigException("Gig is not open", "GIG_CLOSED", HttpStatus.BAD_REQUEST);
           }
 
           Profile worker = profileRepository.findById(workerId)
@@ -187,10 +191,22 @@ public class GigService {
           }
 
           task.setProofPhotoUrl(photoUrl);
+          task.getInProgressPhotos().add(photoUrl); // Append to history
           return taskRepository.save(task);
      }
 
      @Transactional
+     public void updateGigLocation(UUID gigId, double lat, double lng) {
+          Task task = taskRepository.findById(gigId)
+                    .orElseThrow(() -> new RuntimeException("Gig not found"));
+
+          task.setLiveLat(lat);
+          task.setLiveLng(lng);
+          task.setLastUpdated(OffsetDateTime.now());
+
+          taskRepository.save(task);
+     }
+
      public Task completeGig(UUID workerId, UUID gigId) {
           Task task = taskRepository.findById(gigId)
                     .orElseThrow(() -> new RuntimeException("Gig not found"));

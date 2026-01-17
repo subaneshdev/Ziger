@@ -22,6 +22,7 @@ class ActiveGigScreen extends StatefulWidget {
 class _ActiveGigScreenState extends State<ActiveGigScreen> {
   late String _status;
   Timer? _timer;
+  StreamSubscription<Position>? _locationSubscription;
   bool _isLoading = false;
 
   @override
@@ -32,6 +33,7 @@ class _ActiveGigScreenState extends State<ActiveGigScreen> {
     
     if (_status == 'in_progress' && widget.task.startedAt != null) {
       _startTimer();
+      _startLocationUpdates();
     }
   }
 
@@ -39,6 +41,29 @@ class _ActiveGigScreenState extends State<ActiveGigScreen> {
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted) setState(() {});
       });
+  }
+
+  void _startLocationUpdates() {
+    // Check permission first (assuming already granted if we are here, or prompt)
+    // For simplicity, we just listen. In prod, handle permission denial.
+    final locationSettings = const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 20, // Update every 20 meters
+    );
+    
+    _locationSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
+      debugPrint('Location Update: ${position.latitude}, ${position.longitude}');
+      context.read<TaskRepository>().updateLiveLocation(
+        widget.task.id, 
+        position.latitude, 
+        position.longitude
+      );
+    });
+  }
+
+  void _stopLocationUpdates() {
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
   }
 
   Future<void> _launchMaps() async {
@@ -86,6 +111,7 @@ class _ActiveGigScreenState extends State<ActiveGigScreen> {
         _status = 'in_progress';
       });
       _startTimer();
+      _startLocationUpdates();
 
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -97,6 +123,7 @@ class _ActiveGigScreenState extends State<ActiveGigScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _stopLocationUpdates();
     super.dispose();
   }
 
@@ -114,6 +141,7 @@ class _ActiveGigScreenState extends State<ActiveGigScreen> {
     try {
       // Simulate completion
        await context.read<TaskRepository>().completeGig(widget.task.id);
+       _stopLocationUpdates();
        
        if(mounted) {
          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gig Completed!')));

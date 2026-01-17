@@ -4,6 +4,7 @@ import '../../models/task_application_model.dart';
 abstract class TaskRepository {
   Future<List<Task>> fetchTasks();
   Future<List<Task>> fetchTasksByEmployer(String employerId);
+  Future<List<Task>> fetchAssignedTasks();
   Future<void> createTask(Task task);
   
   // Lifecycle Methods

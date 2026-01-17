@@ -55,12 +55,8 @@ public class GigController {
             @RequestHeader("X-User-Id") UUID userId,
             @PathVariable UUID gigId) {
 
-        try {
-            TaskApplication application = gigService.applyForGig(userId, gigId);
-            return ResponseEntity.ok(application);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        TaskApplication application = gigService.applyForGig(userId, gigId);
+        return ResponseEntity.ok(application);
     }
 
     @GetMapping("/{gigId}/my-application")
@@ -128,6 +124,19 @@ public class GigController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
 
+    }
+
+    @PostMapping("/{gigId}/location")
+    public ResponseEntity<?> updateLocation(
+            @PathVariable UUID gigId,
+            @RequestParam double lat,
+            @RequestParam double lng) {
+        try {
+            gigService.updateGigLocation(gigId, lat, lng);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/{gigId}")

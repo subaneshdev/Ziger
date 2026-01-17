@@ -11,7 +11,9 @@ class WorkerProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().userProfile;
     // Determine image provider safely
-    final ImageProvider? imageProvider = (user?.profilePhotoUrl != null && user!.profilePhotoUrl!.isNotEmpty)
+    final ImageProvider? imageProvider = (user?.profilePhotoUrl != null && 
+        user!.profilePhotoUrl!.isNotEmpty &&
+        user!.profilePhotoUrl!.startsWith('http'))
         ? NetworkImage(user!.profilePhotoUrl!)
         : null;
 

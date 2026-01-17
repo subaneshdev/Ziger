@@ -30,11 +30,15 @@ class EmployerProfileScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: (user?.profilePhotoUrl != null && user!.profilePhotoUrl!.isNotEmpty)
+                    backgroundImage: (user?.profilePhotoUrl != null && 
+                        user!.profilePhotoUrl!.isNotEmpty &&
+                        user!.profilePhotoUrl!.startsWith('http'))
                         ? NetworkImage(user!.profilePhotoUrl!)
                         : null,
                     backgroundColor: Colors.grey.shade200,
-                    child: (user?.profilePhotoUrl == null || user!.profilePhotoUrl!.isEmpty)
+                    child: (user?.profilePhotoUrl == null || 
+                            user!.profilePhotoUrl!.isEmpty || 
+                            !user!.profilePhotoUrl!.startsWith('http'))
                         ? const Icon(Icons.person, size: 50, color: Colors.grey)
                         : null,
                   ),

@@ -47,12 +47,12 @@ public class JwtFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(jwt, mobile)) {
                 // In a real app, load UserDetails from DB to get roles
                 // For now, we trust the token and default to empty authorities
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                        new UsernamePasswordAuthenticationToken(mobile, null, new ArrayList<>());
-                
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                        mobile, null, new ArrayList<>());
+
                 usernamePasswordAuthenticationToken
                         .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                
+
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
         }

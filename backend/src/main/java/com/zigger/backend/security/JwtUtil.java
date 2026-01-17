@@ -16,9 +16,10 @@ import java.util.function.Function;
 public class JwtUtil {
 
     // In production, move this to application.properties
-    private static final String SECRET = "zigger_secure_secret_key_should_be_very_long_and_complex";
-    private static final Key SECRET_KEY = Keys.hmacShaKeyFor(SECRET.getBytes());
-    
+    // In production, move this to application.properties
+    private static final String SECRET = "qBEFIf1fAk/Cd9+myj+vWAtq0+RnHekNWF/6DJs64mQ/zIPDHxnarba8YgVZ5qd0172ikR53Qeuneai+NAOwLg==";
+    private static final Key SECRET_KEY = Keys.hmacShaKeyFor(java.util.Base64.getDecoder().decode(SECRET));
+
     // 1 day
     private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 24;
 

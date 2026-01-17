@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../data/repositories/task_repository.dart';
 import '../../models/task_model.dart';
 import '../auth/auth_provider.dart';
@@ -15,38 +17,86 @@ class WorkerHomeScreen extends StatefulWidget {
 }
 
 class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
-  Future<List<Task>>? _tasksFuture;
-  Task? _assignedTask; // Holds the active/assigned gig
+  // Future<List<Task>>? _tasksFuture; // Removed in favor of state list
+  List<Task> _tasks = [];
+  Set<Marker> _markers = {};
+  bool _isLoading = true;
+  Task? _assignedTask; 
+  GoogleMapController? _mapController;
+  LatLng _initialPosition = const LatLng(37.7749, -122.4194); // Default SF
 
   @override
   void initState() {
     super.initState();
+    _determinePosition();
     _loadTasks();
   }
 
-  Future<void> _loadTasks() async {
+  Future<void> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    if (permission == LocationPermission.deniedForever) return;
+
+    final position = await Geolocator.getCurrentPosition();
     setState(() {
-      _tasksFuture = context.read<TaskRepository>().fetchTasks();
+      _initialPosition = LatLng(position.latitude, position.longitude);
     });
     
-    // Also fetch assigned gigs
+    // Move map if controller ready
+    _mapController?.animateCamera(CameraUpdate.newLatLng(_initialPosition));
+  }
+
+  Future<void> _loadTasks() async {
+    setState(() => _isLoading = true);
+    
     try {
+      // 1. Fetch available gigs
+      final tasks = await context.read<TaskRepository>().fetchTasks();
+      
+      // 2. Fetch assigned gigs
       final assignedTasks = await context.read<TaskRepository>().fetchAssignedTasks();
+      Task? assigned;
+      if (assignedTasks.isNotEmpty) {
+           assigned = assignedTasks.firstWhere(
+             (t) => t.status == 'in_progress',
+             orElse: () => assignedTasks.first,
+           );
+      }
+
+      // 3. Generate Markers
+      final markers = tasks.map((task) {
+        return Marker(
+          markerId: MarkerId(task.id),
+          position: task.location,
+          infoWindow: InfoWindow(
+            title: task.title,
+            snippet: '\$${task.payout} • ${task.distance}',
+            onTap: () => context.push('/worker/task-details', extra: task),
+          ),
+        );
+      }).toSet();
+
       if (mounted) {
         setState(() {
-          // Prioritize 'in_progress', then 'assigned'
-          if (assignedTasks.isNotEmpty) {
-             _assignedTask = assignedTasks.firstWhere(
-               (t) => t.status == 'in_progress',
-               orElse: () => assignedTasks.first,
-             );
-          } else {
-            _assignedTask = null;
-          }
+          _tasks = tasks;
+          _assignedTask = assigned;
+          _markers = markers;
+          _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching assigned tasks: $e');
+      debugPrint('Error loading tasks: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -125,7 +175,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 if (_assignedTask != null)
                    GestureDetector(
                     onTap: () {
-                       context.push('/live-gig-tracking', extra: _assignedTask);
+                       context.push('/worker/ongoing-gig', extra: _assignedTask);
                     },
                     child: Container(
                       width: double.infinity,
@@ -160,44 +210,50 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                   ),
                 // --------------------------------
 
-                // 3. Banner
+                // 3. Nearby Gigs Map
                 Container(
+                  height: 250,
                   width: double.infinity,
-                  padding: const EdgeInsets.all(24),
+                  margin: const EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A8A), // Deep Blue Banner
                     borderRadius: BorderRadius.circular(24),
-                    image: const DecorationImage(
-                      image: NetworkImage('https://img.freepik.com/free-vector/gradient-dynamic-blue-lines-background_23-2148995756.jpg'),
-                       fit: BoxFit.cover,
-                       opacity: 0.3, 
-                    )
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'New!',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Find your next\nbig gig!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          height: 1.1,
-                        ),
-                      ),
+                    boxShadow: [
+                      BoxShadow(color: Colors.grey.shade200, blurRadius: 10, offset: const Offset(0, 4)),
                     ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Stack(
+                      children: [
+                        GoogleMap(
+                          initialCameraPosition: CameraPosition(target: _initialPosition, zoom: 12),
+                          onMapCreated: (controller) => _mapController = controller,
+                          markers: _markers,
+                          myLocationEnabled: true,
+                          myLocationButtonEnabled: true,
+                          zoomControlsEnabled: false,
+                        ),
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.map, size: 14, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Text('${_tasks.length} Gigs Nearby', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -220,53 +276,38 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 const SizedBox(height: 12),
                 
                 // Gig List Items
-             FutureBuilder<List<Task>>(
-                  future: _tasksFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(),
-                      ));
-                    }
-                    if (snapshot.hasError) {
-                      return Center(child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text('Failed to load gigs: ${snapshot.error}'),
-                      ));
-                    }
-                    final tasks = snapshot.data ?? [];
-                    
-                    if (tasks.isEmpty) {
-                       return const Center(
-                         child: Padding(
-                           padding: EdgeInsets.all(20.0),
-                           child: Text('No gigs available right now.', style: TextStyle(color: Colors.grey)),
-                         ),
-                       );
-                    }
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: tasks.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 20),
-                      itemBuilder: (context, index) {
-                        final task = tasks[index];
-                        return _buildGigCard(
-                          context,
-                          title: task.title,
-                          location: task.locationName,
-                          price: '\$${task.payout}',
-                          image: _getCategoryImage(task.category),
-                          isActive: task.status == 'open',
-                          postedBy: task.companyName,
-                          task: task,
-                        );
-                      },
-                    );
-                  },
-                ),
+                // Gig List Items
+                   _isLoading
+                      ? const Center(child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(),
+                        ))
+                      : _tasks.isEmpty
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: Text('No gigs available right now.', style: TextStyle(color: Colors.grey)),
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _tasks.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 20),
+                              itemBuilder: (context, index) {
+                                final task = _tasks[index];
+                                return _buildGigCard(
+                                  context,
+                                  title: task.title,
+                                  location: task.locationName,
+                                  price: '\$${task.payout}',
+                                  image: _getCategoryImage(task.category),
+                                  isActive: task.status == 'open',
+                                  postedBy: task.companyName,
+                                  task: task,
+                                );
+                              },
+                            ),
                 const SizedBox(height: 80),
               ],
             ),

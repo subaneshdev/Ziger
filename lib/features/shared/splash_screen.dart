@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
         if (auth.isKycApproved) {
           context.go('/worker/home');
         } else {
-          context.go('/kyc');
+          context.go('/worker-kyc');
         }
       } else if (role == 'employer') {
         context.go('/employer/home');

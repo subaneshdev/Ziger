@@ -7,6 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import '../../models/task_model.dart';
+import '../../data/repositories/task_repository.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/theme.dart';
 
 // --- Screen State Enum ---
@@ -18,9 +22,9 @@ enum GigStep {
 }
 
 class OngoingGigScreen extends StatefulWidget {
-  final Map<String, dynamic> gigData; // Pass actual gig data here
+  final Task task;
 
-  const OngoingGigScreen({super.key, required this.gigData});
+  const OngoingGigScreen({super.key, required this.task});
 
   @override
   State<OngoingGigScreen> createState() => _OngoingGigScreenState();
@@ -77,12 +81,17 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
     // For demo, we just get current position
     try {
       Position pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      final double distance = Geolocator.distanceBetween(
+        pos.latitude, pos.longitude,
+        widget.task.location.latitude, widget.task.location.longitude
+      );
+      
       if (mounted) {
         setState(() {
           _currentPosition = pos;
-          // Simple mock validation: Assume valid if within range
-          // In real app, calculate distance to widget.gigData['location']
-          _isLocationValid = true; 
+          // Valid if within 500 meters
+          _isLocationValid = distance <= 500; 
         });
       }
     } catch (e) {
@@ -91,43 +100,54 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
   }
 
   Future<void> _openMap() async {
-    // Mock Coordinates
-    const double lat = 37.7749;
-    const double lng = -122.4194;
+    final double lat = widget.task.location.latitude;
+    final double lng = widget.task.location.longitude;
     final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl);
     }
   }
 
+
+
   Future<void> _handleCheckIn() async {
+    // 1. Validate Location (Strict)
     if (!_isLocationValid) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are not at the location yet!')));
        return;
     }
 
-    // 1. Capture Photo
+    // 2. Capture Photo
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo == null) return;
 
     setState(() => _isLoading = true);
 
-    // 2. Capture GPS & Time
-    final position = await Geolocator.getCurrentPosition();
-    
-    // Simulate API Call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      
+      // 3. Backend Call
+      await context.read<TaskRepository>().checkIn(
+        widget.task.id, 
+        position.latitude, 
+        position.longitude, 
+        photo.path // In real app, upload first then pass URL
+      );
 
-    if (mounted) {
-      setState(() {
-        _checkInPhoto = File(photo.path);
-        _checkInTime = DateTime.now();
-        _checkInLocation = position;
-        _currentStep = GigStep.working;
-        _startTimer();
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check-in Successful!')));
+      if (mounted) {
+        setState(() {
+          _checkInPhoto = File(photo.path);
+          _checkInTime = DateTime.now();
+          _checkInLocation = position;
+          _currentStep = GigStep.working;
+          _startTimer();
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check-in Successful!')));
+      }
+    } catch (e) {
+      if(mounted) setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -135,7 +155,6 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo == null) return;
 
-    // Show dialog for optional note
     String? note = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -151,21 +170,30 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
       },
     );
 
-    setState(() {
-      _updates.insert(0, {
-        'photo': File(photo.path),
-        'note': note,
-        'time': DateTime.now(),
-      });
-    });
+    setState(() => _isLoading = true);
+    try {
+       await context.read<TaskRepository>().uploadProgressPhoto(widget.task.id, photo.path);
+       
+       if (mounted) {
+         setState(() {
+          _updates.insert(0, {
+            'photo': File(photo.path),
+            'note': note,
+            'time': DateTime.now(),
+          });
+          _isLoading = false;
+        });
+       }
+    } catch (e) {
+       if(mounted) setState(() => _isLoading = false);
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Future<void> _handleCheckOut() async {
-    // 1. Capture Photo
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo == null) return;
 
-    // 2. Confirmation Modal
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -182,27 +210,50 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
 
     setState(() => _isLoading = true);
     
-    // Simulate API
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      await context.read<TaskRepository>().checkOut(widget.task.id, photo.path);
 
-    if (mounted) {
-       setState(() {
-         _checkOutPhoto = File(photo.path);
-         _checkOutTime = DateTime.now();
-         _timer?.cancel();
-         _currentStep = GigStep.finished;
-         _isLoading = false;
-       });
-       // Navigate away or show summary
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gig Completed!')));
-       context.go('/worker/home');
+      if (mounted) {
+         setState(() {
+           _checkOutPhoto = File(photo.path);
+           _checkOutTime = DateTime.now();
+           _timer?.cancel();
+           _currentStep = GigStep.finished;
+           _isLoading = false;
+         });
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gig Completed!')));
+         context.go('/worker/home');
+      }
+    } catch (e) {
+       if(mounted) setState(() => _isLoading = false);
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
+    // PopScope to prevent accidental exit during critical phases
+    return PopScope(
+      canPop: _currentStep == GigStep.reachLocation || _currentStep == GigStep.finished,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldPop = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Quit Gig?'),
+            content: const Text('You are checked in. Quitting now may affect your trust score. Please Complete or Cancel properly.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Stay')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Exit (Risk)')),
+            ],
+          ),
+        );
+        if (shouldPop == true && context.mounted) {
+           Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
           Column(
@@ -239,6 +290,7 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
           _buildLiveStatusPanel(),
         ],
       ),
+    ),
     );
   }
 
@@ -275,9 +327,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.gigData['title'] ?? 'Retail Store Assistant', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(widget.task.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(widget.gigData['employer'] ?? 'Zara Pvt Ltd', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                    Text(widget.task.employerId, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ],
                 ),
               ),
@@ -352,9 +404,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.gigData['address'] ?? '123 Main Street, City Center', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(widget.task.locationName, style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('0.2 km away', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      Text('Navigate to location', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                     ],
                   ),
                 ),
@@ -644,9 +696,9 @@ class _OngoingGigScreenState extends State<OngoingGigScreen> {
      return Card(
        margin: const EdgeInsets.all(16),
        color: Colors.green[50],
-       child: const ListTile(
+       child: ListTile(
          leading: Icon(Icons.monetization_on, color: Colors.green),
-         title: Text('Total Payout: \$120.00'),
+         title: Text('Total Payout: ${widget.task.payout}'),
          subtitle: Text('Payment in Escrow • Released within 24h'),
          trailing: Icon(Icons.check_circle, color: Colors.green),
        ),

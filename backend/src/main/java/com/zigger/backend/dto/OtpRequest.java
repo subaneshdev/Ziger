@@ -1,8 +1,20 @@
 package com.zigger.backend.dto;
 
-import lombok.Data;
-
-@Data
 public class OtpRequest {
     private String mobile;
+
+    public OtpRequest() {
+    }
+
+    public OtpRequest(String mobile) {
+        this.mobile = mobile;
+    }
+
+    public String getMobile() {
+        return mobile;
+    }
+
+    public void setMobile(String mobile) {
+        this.mobile = mobile;
+    }
 }

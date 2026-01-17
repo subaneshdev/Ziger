@@ -190,8 +190,17 @@ class _EmployerManageGigsScreenState extends State<EmployerManageGigsScreen> {
                   // Assuming app is TaskApplication, but allowing for dynamic if needed
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: NetworkImage(app.worker.profilePictureUrl ?? ''),
-                      child: app.worker.profilePictureUrl == null ? const Icon(Icons.person) : null,
+                      backgroundImage: (app.worker.profilePictureUrl != null && 
+                          app.worker.profilePictureUrl!.isNotEmpty &&
+                          app.worker.profilePictureUrl!.startsWith('http'))
+                          ? NetworkImage(app.worker.profilePictureUrl!)
+                          : null,
+                      backgroundColor: Colors.grey.shade200,
+                      child: (app.worker.profilePictureUrl == null || 
+                              app.worker.profilePictureUrl!.isEmpty ||
+                              !app.worker.profilePictureUrl!.startsWith('http')) 
+                          ? const Icon(Icons.person) 
+                          : null,
                     ),
                     title: Text(app.worker.fullName),
                     subtitle: Text(app.pitchMessage ?? 'No message'),

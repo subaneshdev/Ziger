@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/task_model.dart';
 import '../../core/theme.dart';
+import '../auth/auth_provider.dart';
 import '../../data/repositories/task_repository.dart';
 
 class LiveGigTrackingScreen extends StatefulWidget {
@@ -41,22 +42,37 @@ class _LiveGigTrackingScreenState extends State<LiveGigTrackingScreen> {
   }
 
   void _startPolling() {
-    // Poll for updates every 10 seconds (Simulated real-time)
+    // Poll for updates every 10 seconds 
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
-       // In a real app, use Supabase Realtime subscription instead of polling
-       // Here we just fetch the latest task data
-       // TODO: Implement fetchSingleTask in Repo or Realtime
-       setState(() {
-         // Simulate worker moving slightly for demo
-         if (widget.task.status == 'in_progress') {
-            _workerLocation = LatLng(
-                _workerLocation.latitude + 0.0001, 
-                _workerLocation.longitude + 0.0001
-            );
-            _updateMarkers();
-            _moveCamera();
-         }
-       });
+       try {
+          // Fetch updated task data
+          // Ideally we need getTaskById, but for now we can iterate fetchAssignedTasks or adding getTaskById to repo
+          // Let's assume fetchTasks includes it or add a specific method.
+          // HACK: For MVP without getTaskById, we use getApplications or just assume we can get it.
+          // Real fix: Add getTaskById to repo.
+          // Let's use fetchTasks which returns everything for now (inefficient but works)
+          // Or better: Just use the feed endpoint but filter? No.
+          // Let's rely on the fact that if we are the employer, 'fetchTasksByEmployer' should have it.
+          
+          final user = context.read<AuthProvider>().userProfile;
+          if (user != null) {
+              final tasks = await context.read<TaskRepository>().fetchTasksByEmployer(user.id);
+              final updatedTask = tasks.firstWhere((t) => t.id == widget.task.id, orElse: () => widget.task);
+              
+              if (mounted) {
+                 setState(() {
+                   // Update location
+                   if (updatedTask.liveLat != null && updatedTask.liveLng != null) {
+                     _workerLocation = LatLng(updatedTask.liveLat!, updatedTask.liveLng!);
+                   }
+                   _updateMarkers();
+                   _moveCamera();
+                 });
+              }
+          }
+       } catch (e) {
+         debugPrint('Error polling task: $e');
+       }
     });
   }
 
@@ -136,9 +152,12 @@ class _LiveGigTrackingScreenState extends State<LiveGigTrackingScreen> {
                       children: [
                          CircleAvatar(
                           radius: 24,
-                          backgroundImage: widget.task.assignedWorkerAvatar != null 
+                          backgroundImage: (widget.task.assignedWorkerAvatar != null && 
+                              widget.task.assignedWorkerAvatar!.isNotEmpty &&
+                              widget.task.assignedWorkerAvatar!.startsWith('http'))
                               ? NetworkImage(widget.task.assignedWorkerAvatar!)
                               : const NetworkImage('https://i.pravatar.cc/150?u=zigger'), 
+                          backgroundColor: Colors.grey.shade200,
                         ),
                         const SizedBox(width: 12),
                         Expanded(

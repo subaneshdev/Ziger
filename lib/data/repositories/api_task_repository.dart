@@ -36,6 +36,13 @@ class ApiTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<List<Task>> fetchTasksByWorker(String workerId) async {
+    // For now, alias to fetchAssignedTasks or hit a specific endpoint if needed.
+    // Ideally: /gigs/worker/{workerId} or just /gigs/assigned if authenticated as worker
+    return fetchAssignedTasks();
+  }
+
+  @override
   Future<void> createTask(Task task) async {
     await _api.post('/gigs', task.toJson());
   }
@@ -60,15 +67,14 @@ class ApiTaskRepository implements TaskRepository {
     // Backend doesn't have strict check-in, map to startGig or updateLocation
     // Reuse startGig if status is assigned
      await _api.post('/gigs/$taskId/start', {});
+     if (photoUrl.isNotEmpty) {
+       await uploadProgressPhoto(taskId, photoUrl);
+     }
   }
 
   @override
   Future<void> updateLiveLocation(String taskId, double lat, double lng) async {
-    // Use ProfileService location update
-    // We need userId. Assuming it's in token, but repository method might not have it.
-    // Current TaskRepository signature takes taskId.
-    // Map to new Api endpoint if we adjust repo signature or fetch user id from somewhere.
-    // _api.post('/profiles/$userId/location?lat=$lat&lng=$lng', {});
+    await _api.post('/gigs/$taskId/location?lat=$lat&lng=$lng', {});
   }
 
   @override
